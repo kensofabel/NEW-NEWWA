@@ -1,0 +1,745 @@
+/* Add Product Button Custom Padding */
+#addProductBtn {
+    padding: 10px 22px !important;
+}
+
+/* Tab Info Actions Layout */
+#tab-info-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 25px;
+    margin-bottom: 12px;
+}
+
+/* Dropdown Styling */
+#categoryFilter,
+#stockAlert {
+    padding: 8px 12px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #232323;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+/* Search Bar Toggle Functionality */
+.search-controls {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.3s ease;
+}
+
+.search-icon-btn {
+    padding: 12px;
+    border: 2px solid #333;
+    border-radius: 8px;
+    background: #232323;
+    color: #ff9800;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    display: none; /* Hidden on desktop by default */
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+}
+
+.search-icon-btn:hover {
+    background: #333;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* Desktop: Always show search box, hide search icon */
+.search-controls .search-box {
+    display: block;
+    position: relative;
+}
+
+/* Fix search icon positioning inside search bar */
+.search-controls .search-box i {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #ff9800;
+    pointer-events: none;
+}
+
+/* Remove white highlight border from search input */
+.search-controls .search-box input {
+    outline: none;
+    box-shadow: none;
+}
+
+.search-controls .search-box input:focus {
+    outline: none;
+    box-shadow: none;
+    border-color: #333;
+}
+
+/* Mobile/Small Device Functionality */
+@media (max-width: 768px) {
+    /* Mobile layout: Search icon on rightmost side */
+    .inventory-controls {
+        flex-direction: row-reverse !important;
+        flex-wrap: nowrap !important; /* Prevent wrapping */
+        align-items: center;
+    }
+    
+    .search-controls {
+        order: 1; /* Search controls on the right */
+        flex-shrink: 0; /* Prevent shrinking */
+    }
+    
+    .filter-controls {
+        order: 2; /* Filter controls on the left */
+        flex: 1; /* Take remaining space */
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 5px; /* Reduce gap on mobile */
+        overflow-x: auto; /* Allow horizontal scrolling if needed */
+    }
+    
+    /* Mobile dropdown adjustments */
+    .filter-controls select {
+        min-width: 80px; /* Minimum width for readability */
+        max-width: 120px; /* Maximum width to fit more dropdowns */
+        font-size: 12px; /* Smaller font for mobile */
+    }
+    
+    /* Show search icon, hide search box by default on mobile */
+    .search-icon-btn {
+        display: flex;
+        flex-shrink: 0; /* Don't allow shrinking */
+    }
+    
+    .search-controls.collapsed .search-box {
+        display: none;
+    }
+    
+    .search-controls.expanded .search-icon-btn {
+        display: none;
+    }
+    
+    /* When search is expanded, keep it inline with dropdowns */
+    .search-controls.expanded {
+        flex: 1; /* Take available space */
+        max-width: 60%; /* Don't take full width */
+    }
+    
+    .search-controls.expanded .search-box {
+        display: block;
+        width: 100%;
+    }
+    
+    .search-controls.expanded .search-box input {
+        width: 100%;
+        font-size: 14px; /* Readable font size */
+    }
+    
+    /* Keep filter controls visible and inline when search expanded */
+    .search-controls.expanded ~ .filter-controls {
+        display: flex !important;
+        flex: 1;
+        max-width: 40%; /* Remaining space */
+    }
+}
+
+/* Tab Style Buttons - Override any inherited alignment */
+.scanner-modal .scanner-tab {
+    background: #ff9800;
+    color: #232323;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px;
+    min-width: 70px;
+    user-select: none;
+    position: relative;
+    z-index: 10;
+}
+
+.single-toggle-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+/* Toggle Button States - Orange, Yellow, Gray */
+.single-toggle-btn[data-current="all"] {
+    background: #ff9800;
+    color: #fff;
+    border-color: #ff9800;
+}
+
+.single-toggle-btn[data-current="pos"] {
+    background: #ffc107;
+    color: #212529;
+    border-color: #ffc107;
+}
+
+.single-toggle-btn[data-current="stock"] {
+    background: #6c757d;
+    color: #fff;
+    border-color: #6c757d;
+}
+
+/* Scanner Modal Styles - Fixed width */
+.scanner-modal {
+    width: 500px !important; /* Fixed width instead of min/max range */
+    max-width: 500px !important;
+    min-width: 500px !important;
+    background: #232323 !important;
+    border-radius: 18px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35) !important;
+    position: relative !important;
+    padding: 0 40px 28px 40px !important; /* Remove top padding */
+    text-align: center !important;
+}
+
+/* Responsive Scanner Modal for smaller devices */
+@media (max-width: 768px) {
+    .scanner-modal {
+        width: 350px !important;
+        max-width: 350px !important;
+        min-width: 350px !important;
+        padding: 0 25px 25px 25px !important; /* Remove top padding */
+    }
+}
+
+@media (max-width: 480px) {
+    .scanner-modal {
+        width: 320px !important;
+        max-width: 320px !important;
+        min-width: 250px !important;
+        padding: 0 20px 20px 20px !important; /* Remove top padding */
+    }
+}
+
+/* Camera Scanner - Fixed width */
+.camera-container {
+    position: relative;
+    width: 370px !important; /* Fixed width */
+    max-width: 370px !important;
+    min-width: 370px !important;
+    height: 250px !important; /* Set container height */
+    background: #000;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 0 !important; /* Remove bottom margin */
+}
+
+/* Tabs below header, centered */
+.scanner-modal .modal-tabs {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 45px;
+    margin: 40px 0 -10px 0; /* Increased top margin to move tabs lower */
+}
+
+/* Tab Style Buttons - Previous Button Style */
+.scanner-tab {
+    background: #ff9800;
+    color: #232323;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 70px;
+    justify-content: center;
+    user-select: none;
+    position: relative;
+    z-index: 10;
+}
+
+.scanner-tab.active {
+    background: #ff9800;
+    color: #232323;
+    transform: scale(1.05);
+}
+
+.scanner-tab:not(.active) {
+    background: #333;
+    color: #dbdbdb;
+}
+
+.scanner-tab:hover {
+    background: #ff6600;
+    color: #232323;
+    transform: scale(1.05);
+}
+
+/* --- FLOATING LABEL: JS-ASSISTED --- */
+.manual-form .form-group.active input[type="text"] + label,
+.manual-form .form-group.active input[type="number"] + label {
+    top: -10px;
+    left: 0;
+    font-size: 0.85rem;
+    color: #ff9800 !important;
+    padding: 0 4px;
+    z-index: 3;
+}
+
+.manual-form .form-group input[type="text"]:focus + label,
+.manual-form .form-group input[type="number"]:focus + label {
+    top: -10px;
+    left: 0;
+    font-size: 0.85rem;
+    color: #ff9800 !important;
+    padding: 0 4px;
+    z-index: 3;
+}
+
+/* Mode Content */
+.mode-content {
+    min-height: 280px; /* or a value that fits your content */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+/* Form Mode Content - Same as other modes */
+#formMode.mode-content {
+    min-height: 350px;
+    height: auto;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+}
+
+#cameraVideo {
+    width: 100%;
+    height: 100% !important; /* Change from 250px to 100% */
+    object-fit: cover;
+    display: block; /* Remove any default spacing */
+}
+
+.scanner-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border: 2px solid #ff9800;
+    border-radius: 12px;
+}
+
+.scanner-line {
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: #ff9800;
+    animation: scanMove 2s ease-in-out infinite;
+    box-shadow: 0 0 10px #ff9800;
+}
+
+@keyframes scanMove {
+    0%, 100% { transform: translateY(-60px); opacity: 0.7; }
+    50% { transform: translateY(60px); opacity: 1; }
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #dbdbdb;
+    margin-top: 70px; /* Add this to lower the whole section */
+}
+
+.loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid #333;
+    border-top: 4px solid #ff9800;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-container h3 {
+    color: #ff9800;
+    margin-bottom: 10px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Manual Mode */
+.manual-form {
+    width: 100%;
+    max-width: 370px;      /* Match camera-container width */
+    padding: 20px auto;    /* Add vertical and horizontal padding */
+    background: #232323;   /* Optional: match modal background */
+    border-radius: 12px;   /* Optional: rounded corners for form */
+    margin: 20px;
+}
+
+.manual-form .form-description {
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.manual-form .form-description p {
+    color: #dbdbdb;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0;
+    opacity: 0.9;
+}
+
+.manual-form .form-group {
+    left: 30px;
+    position: relative;
+    user-select: none;
+    text-align: left;
+    margin-top: 25px !important;
+}
+
+/* Disable ALL transitions for inputs and labels */
+#scannerModal .manual-form input,
+#scannerModal .manual-form label,
+#scannerModal .manual-form *,
+#scannerModal input,
+#scannerModal label {
+    animation: none !important;
+}
+
+/* Floating label effect for manual and product form inputs */
+.manual-form .form-group,
+.product-form .form-group {
+    position: relative;
+}
+/* Floating label effect for manual form inputs only */
+.manual-form .form-group {
+    position: relative;
+}
+ .manual-form input[type="text"],
+ .manual-form input[type="number"] {
+    margin-left: 5px !important;
+    text-indent: 0 !important;
+    width: calc(100% - 30px) !important;
+    color: #dbdbdb !important;
+    border: none !important;
+    border-bottom: .5px solid #555 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    height: 35px !important;
+    padding: 8px 0 8px 0 !important;
+    text-align: left !important;
+    font-size: 1rem !important;
+    transition: border-color 0.2s;
+    outline: none !important;
+}
+
+.manual-form input[type="text"]:focus,
+.manual-form input[type="number"]:focus {
+    border-bottom: .5px solid #ff9800 !important;
+    background: transparent !important;
+    color: #dbdbdb !important;
+}
+.manual-form .form-group label {
+    position: absolute;
+    left: 5px;
+    top: 18px;
+    color: #888;
+    font-size: 1rem;
+    pointer-events: none;
+    background: transparent;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
+    z-index: 2;
+}
+/* Float label only on focus */
+.manual-form .form-group input[type="text"]:focus + label,
+.manual-form .form-group input[type="number"]:focus + label {
+    top: -10px;
+    left: 0;
+    font-size: 0.85rem;
+    color: #ff9800 !important;
+    padding: 0 4px; 
+    z-index: 3;
+}
+
+.manual-form .field-checkbox:checked {
+    background: #ff9800 !important;
+    border-color: #ff9800 !important;
+}
+
+.manual-form .field-checkbox:checked::after {
+    content: '✓' !important;
+    display: block !important;
+    color: #232323 !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    position: absolute !important;
+    left: 40% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    pointer-events: none !important;
+    line-height: 1 !important;
+}
+
+.manual-form .field-checkbox:hover {
+    border-color: #777 !important;
+}
+
+.manual-form .field-checkbox:focus {
+    outline: none !important;
+    border-color: #ff9800 !important;
+}
+/* Checkbox Styles for Manual Form */
+.manual-form .field-checkbox {
+    position: absolute;
+    left: -30px;
+    top: 8px;
+    width: 22px !important;
+    height: 20px !important;
+    padding: 0 !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    border-radius: 4px !important;
+    border: 2px solid #555 !important;
+    background: #232323 !important;
+    cursor: pointer !important;
+    z-index: 5 !important;
+    margin-right: 0 !important;
+    outline: none !important;
+}
+
+.manual-form .field-checkbox:checked {
+    background: #ff9800 !important;
+    border-color: #ff9800 !important;
+}
+
+.manual-form .field-checkbox:checked::after {
+    content: '✓' !important;
+    display: block !important;
+    color: #232323 !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    position: absolute !important;
+    left: 40% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    pointer-events: none !important;
+    line-height: 1 !important;
+}
+
+.manual-form .field-checkbox:hover {
+    border-color: #777 !important;
+}
+
+.manual-form .field-checkbox:focus {
+    outline: none !important;
+    border-color: #ff9800 !important;
+}
+
+/* Helper text for SKU and Barcode fields: closer to underline */
+.sku-helper,
+.barcode-helper {
+    margin-left: 5px;
+    color: #888;
+    font-size: 12px;
+    margin-top: 0.5em;
+    margin-bottom: 0;
+    line-height: 1.2;
+    position: relative;
+    top: -5px;
+}
+
+#nextBtn {
+    user-select: none;
+    width: 100%;
+    background: #ff9800;
+    color: #232323;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+#nextBtn:hover {
+    background: #ff6600;
+    transform: translateY(-1px);
+}
+
+/* Skip Section */
+.skip-section {
+    position: absolute;
+    margin-bottom: 30px;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.skip-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 14px;
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color 0.3s ease;
+}
+
+.skip-btn:hover {
+    color: #fff;
+}
+
+/* Compact modal header and close button alignment */
+.scanner-modal .modal-header {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    border: none !important;
+    margin: 0 !important;
+    min-height: 40px !important;
+    background: #232323;
+}
+
+.scanner-modal .modal-title {
+    flex: 1 1 auto;
+    text-align: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #ff9800;
+    letter-spacing: 0.5px;
+    user-select: none;
+    margin-right: 32px;
+}
+
+/* Facebook-style circular close button, perfectly centered vertically in header */
+.scanner-modal .close {
+    position: absolute !important;
+    right: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 1.5rem !important;
+    color: #fff !important;
+    background: #444 !important;
+    border: none;
+    cursor: pointer !important;
+    z-index: 10 !important;
+    transition: color 0.2s, background 0.2s !important;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    padding: 0;
+    line-height: 1;
+    text-align: center;
+    font-family: monospace, 'Arial', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1.7rem !important;
+}
+
+/* Divider: block, negative margin to escape modal padding */
+.modal-divider {
+    display: block;
+    height: 1.5px;
+    background: #444;
+    opacity: 0.7;
+    width: calc(100% + 80px); /* 40px left + 40px right */
+    margin: 0 -40px;
+    border-radius: 0;
+}
+
+@media (max-width: 768px) {
+    .modal-divider {
+        width: calc(100% + 50px); /* 25px left + 25px right */
+        margin: 0 -25px;
+    }
+}
+@media (max-width: 480px) {
+    .modal-divider {
+        width: calc(100% + 40px); /* 20px left + 20px right */
+        margin: 0 -20px;
+    }
+}
+
+/* Tabs below header, centered */
+.scanner-modal .modal-tabs {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 45px;
+    margin: 40px 0 -10px 0; /* Increased top margin to move tabs lower */
+}
+
+/* Tab Style Buttons - Previous Button Style */
+.scanner-tab {
+    background: #ff9800;
+    color: #232323;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 70px;
+    justify-content: center;
+    user-select: none;
+    position: relative;
+    z-index: 10;
+}
+
+.scanner-tab.active {
+    background: #ff9800;
+    color: #232323;
+    transform: scale(1.05);
+}
+
+.scanner-tab:not(.active) {
+    background: #333;
+    color: #dbdbdb;
+}
+
+.scanner-tab:hover {
+    background: #ff6600;
+    color: #232323;
+    transform: scale(1.05);
+}
