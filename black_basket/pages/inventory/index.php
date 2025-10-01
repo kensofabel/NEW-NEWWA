@@ -112,7 +112,7 @@ if (!isset($_SESSION['user_id'])) {
 <div class="modal" id="scannerModal">
     <div class="modal-content scanner-modal">
         <div class="modal-header">
-            <h2>Add Item</h2>
+            <h2 class= "modal-title">Add Item</h2>
             <span class="close" id="closeScanner">&times;</span>
         </div>
         <div class="modal-divider"></div>
@@ -122,6 +122,7 @@ if (!isset($_SESSION['user_id'])) {
             <button class="scanner-tab" id="manualTab">MANUAL</button>
         </div>
         <div class="modal-body">
+            <div id="baseAddFlow" class="base-add-flow">
             <!-- Scanner Mode -->
             <div id="scannerMode" class="mode-content">
                 <!-- Camera Scanner -->
@@ -133,7 +134,6 @@ if (!isset($_SESSION['user_id'])) {
                         </div>
                     </div>
                 </div>
-                
                 <!-- Hardware Scanner -->
                 <div id="hardwareScanner" class="scanner-section" style="display:none;">
                     <div class="loading-container">
@@ -168,12 +168,17 @@ if (!isset($_SESSION['user_id'])) {
                     </div>
                 </div>
             </div>
-
+            </div>
             
             <!-- Product Form Mode removed -->
+            <!-- Inline Add Items Panel mount point -->
+            <div id="inlineAddItemsMount"></div>
         </div>
     </div>
 </div>
+
+<!-- Add Items Modal (injected) -->
+<?php include 'add-items-modal.html'; ?>
 
 <script>
 function showInventoryTab(tab) {
@@ -285,6 +290,28 @@ document.addEventListener('DOMContentLoaded', function() {
         // filterInventoryByType(nextState.key);
     });
 });
+
+// Disable Next button unless checked input has data
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        var skuInput = document.getElementById('manualSKU');
+        var skuCheckbox = document.getElementById('enableSKU');
+        var barcodeInput = document.getElementById('manualBarcode');
+        var barcodeCheckbox = document.getElementById('enableBarcode');
+        var nextBtn = document.getElementById('nextBtn');
+        function updateNextBtn() {
+            var skuValid = skuCheckbox && skuCheckbox.checked && skuInput && skuInput.value.trim();
+            var barcodeValid = barcodeCheckbox && barcodeCheckbox.checked && barcodeInput && barcodeInput.value.trim();
+            nextBtn.disabled = !(skuValid || barcodeValid);
+        }
+        if (skuInput) skuInput.addEventListener('input', updateNextBtn);
+        if (barcodeInput) barcodeInput.addEventListener('input', updateNextBtn);
+        if (skuCheckbox) skuCheckbox.addEventListener('change', updateNextBtn);
+        if (barcodeCheckbox) barcodeCheckbox.addEventListener('change', updateNextBtn);
+        updateNextBtn(); // Initial state
+    });
+})();
+
 </script>
 <script src="inventory.js"></script>
 </body>

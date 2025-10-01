@@ -1,4 +1,17 @@
 document.addEventListener('DOMContentLoaded', function () {
+    // Helper to enable/disable Next button
+    function updateNextButtonState() {
+        var skuInput = document.getElementById('manualSKU');
+        var skuCheckbox = document.getElementById('enableSKU');
+        var barcodeInput = document.getElementById('manualBarcode');
+        var barcodeCheckbox = document.getElementById('enableBarcode');
+        var nextBtn = document.getElementById('nextBtn');
+        if (!nextBtn) return;
+        // Button enabled if checked input has value
+        var skuValid = skuCheckbox && skuCheckbox.checked && skuInput && skuInput.value.trim();
+        var barcodeValid = barcodeCheckbox && barcodeCheckbox.checked && barcodeInput && barcodeInput.value.trim();
+        nextBtn.disabled = !(skuValid || barcodeValid);
+    }
     const inventoryTableBody = document.getElementById('inventory-table-body');
     const addProductForm = document.getElementById('add-product-form');
     const searchInput = document.getElementById('search-inventory');
@@ -72,7 +85,116 @@ document.addEventListener('DOMContentLoaded', function () {
     const cameraScanner = document.getElementById('cameraScanner');
     const hardwareScanner = document.getElementById('hardwareScanner');
     const nextBtn = document.getElementById('nextBtn');
-    const skipBtn = document.getElementById('skipBtn');
+    const skipScannerBtn = document.getElementById('skipScanner');
+    const skipManualEntryBtn = document.getElementById('skipManualEntry');
+    const addItemsModal = document.getElementById('addItemsModal');
+    const addItemsModalContent = addItemsModal ? addItemsModal.querySelector('.modal-content') : null;
+    const closeAddItemsBtn = document.getElementById('closeAddItems');
+    const inlineAddItemsMount = document.getElementById('inlineAddItemsMount');
+    const inlineTpl = document.getElementById('inlineAddItemsTemplate');
+    const baseAddFlow = document.getElementById('baseAddFlow');
+
+    function resetAddItemsAnim() {
+        if (!addItemsModal || !addItemsModalContent) return;
+        addItemsModal.classList.remove('fb-backdrop-in', 'fb-backdrop-out');
+        addItemsModalContent.classList.remove('fb-modal-in', 'fb-modal-out');
+        addItemsModalContent.classList.remove('modal-slide-in', 'modal-slide-left');
+    }
+
+    // Show Add Items modal with transition (animate content only)
+    function showAddItemsModalWithTransition() {
+        if (!addItemsModal || !addItemsModalContent) return;
+        resetAddItemsAnim();
+        addItemsModal.style.display = 'flex'; // center using flex; no backdrop anim
+        // Force reflow for content anim
+        void addItemsModalContent.offsetWidth;
+        addItemsModalContent.classList.add('modal-slide-in');
+        addItemsModalContent.addEventListener('animationend', function handler() {
+            addItemsModalContent.classList.remove('modal-slide-in');
+            addItemsModalContent.removeEventListener('animationend', handler);
+        });
+    }
+
+    // Hide Add Items modal with transition (animate content only)
+    function closeAddItemsModal() {
+        if (!addItemsModal || !addItemsModalContent) return;
+        // Content out only; no backdrop animation
+        addItemsModalContent.classList.remove('modal-slide-in');
+        addItemsModalContent.classList.add('modal-slide-left');
+        addItemsModalContent.addEventListener('animationend', function handler() {
+            addItemsModal.style.display = 'none';
+            addItemsModalContent.classList.remove('modal-slide-left');
+            addItemsModalContent.removeEventListener('animationend', handler);
+        });
+    }
+
+    // Attach event listeners to skip buttons
+    if (skipScannerBtn) {
+        skipScannerBtn.addEventListener('click', function () {
+            // Prefer inline panel if mount and template exist
+            if (inlineAddItemsMount && inlineTpl) {
+                openInlineAddItemsPanel();
+            } else {
+                showAddItemsModalWithTransition();
+            }
+        });
+    }
+    if (skipManualEntryBtn) {
+        skipManualEntryBtn.addEventListener('click', function () {
+            if (inlineAddItemsMount && inlineTpl) {
+                openInlineAddItemsPanel();
+            } else {
+                showAddItemsModalWithTransition();
+            }
+        });
+    }
+    if (closeAddItemsBtn) {
+        closeAddItemsBtn.addEventListener('click', function () {
+            closeAddItemsModal();
+        });
+    }
+
+    // Inline Add Items Panel logic
+    function openInlineAddItemsPanel() {
+        // Guard: already open
+        if (document.getElementById('inlineAddItemsPanel')) return;
+        const node = inlineTpl.content.firstElementChild.cloneNode(true);
+        inlineAddItemsMount.appendChild(node);
+        if (baseAddFlow) baseAddFlow.classList.add('slide-out-left');
+        requestAnimationFrame(() => {
+            node.classList.add('show');
+        });
+
+        // Close button handler
+        const closeBtn = node.querySelector('#closeInlineAddItems');
+        if (closeBtn) closeBtn.addEventListener('click', () => closeInlineAddItemsPanel());
+
+        // Submit handler
+        const form = node.querySelector('#inlineAddItemsForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const name = node.querySelector('#inlineItemName').value.trim();
+                const category = node.querySelector('#inlineItemCategory').value.trim();
+                const trackStock = node.querySelector('#inlineTrackStock').checked;
+                const availablePOS = node.querySelector('#inlineAvailablePOS').checked;
+                console.log('Inline Add Item:', { name, category, trackStock, availablePOS });
+                closeInlineAddItemsPanel();
+                return false;
+            });
+        }
+    }
+
+    function closeInlineAddItemsPanel() {
+        const panel = document.getElementById('inlineAddItemsPanel');
+        if (!panel) return;
+        panel.classList.remove('show');
+        // Wait for CSS transition
+        setTimeout(() => {
+            panel.remove();
+            if (baseAddFlow) baseAddFlow.classList.remove('slide-out-left');
+        }, 400);
+    }
     
     // Debug: Check if elements exist
     console.log('Scanner Modal Elements Check:');
@@ -503,7 +625,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (trackStockCheckbox && stockSection) {
         trackStockCheckbox.addEventListener('change', function() {
             if (this.checked) {
-                stockSection.style.display = 'block';
+                stockSection.style.display = 'block';d
             } else {
                 stockSection.style.display = 'none';
             }
@@ -524,11 +646,28 @@ document.addEventListener('DOMContentLoaded', function () {
         var barcodeInput = document.getElementById('manualBarcode');
         var barcodeCheckbox = document.getElementById('enableBarcode');
 
+        // Guard flag to prevent blur logic when clicking checkbox
+        var skuBlurByCheckbox = false;
+        var barcodeBlurByCheckbox = false;
+
         if (skuInput && skuCheckbox) {
+            skuCheckbox.addEventListener('mousedown', function() {
+                skuBlurByCheckbox = true;
+            });
             skuInput.addEventListener('focus', function() {
                 skuCheckbox.checked = true;
             });
-            // Remove blur handler that re-checks the box
+            skuInput.addEventListener('blur', function() {
+                if (skuBlurByCheckbox) {
+                    skuBlurByCheckbox = false;
+                    return; // Don't uncheck if blur caused by checkbox click
+                }
+                if (!skuInput.value.trim()) {
+                    skuCheckbox.checked = false;
+                } else {
+                    skuCheckbox.checked = true;
+                }
+            });
             skuInput.addEventListener('input', function() {
                 if (skuInput.value.trim()) {
                     skuCheckbox.checked = true;
@@ -536,10 +675,23 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
         if (barcodeInput && barcodeCheckbox) {
+            barcodeCheckbox.addEventListener('mousedown', function() {
+                barcodeBlurByCheckbox = true;
+            });
             barcodeInput.addEventListener('focus', function() {
                 barcodeCheckbox.checked = true;
             });
-            // Remove blur handler that re-checks the box
+            barcodeInput.addEventListener('blur', function() {
+                if (barcodeBlurByCheckbox) {
+                    barcodeBlurByCheckbox = false;
+                    return;
+                }
+                if (!barcodeInput.value.trim()) {
+                    barcodeCheckbox.checked = false;
+                } else {
+                    barcodeCheckbox.checked = true;
+                }
+            });
             barcodeInput.addEventListener('input', function() {
                 if (barcodeInput.value.trim()) {
                     barcodeCheckbox.checked = true;
@@ -572,20 +724,42 @@ document.addEventListener('DOMContentLoaded', function () {
             skuCheckbox.addEventListener('change', function() {
                 updateFormGroupActive(skuInput, skuCheckbox);
                 if (skuCheckbox.checked) {
+                    // Only focus if checking the box
                     if (document.activeElement !== skuInput) {
-                        skuInput.focus(); // Only focus if not already focused
+                        skuInput.focus();
                     }
                 } else {
                     skuInput.value = '';
                     updateFormGroupActive(skuInput, skuCheckbox);
-                    if (document.activeElement === skuInput) {
-                        skuInput.blur(); // Blur if focused
-                    }
+                    // Always blur input on uncheck, even if event order causes accidental focus
+                    setTimeout(function() {
+                        if (document.activeElement === skuInput) {
+                            skuInput.blur();
+                        }
+                    }, 10);
                 }
             });
             // On page load
             updateFormGroupActive(skuInput, skuCheckbox);
         }
+    });
+})();
+
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        function updateFormGroupActive(input, checkbox) {
+            var group = input.closest('.form-group');
+            if (!group) return;
+            if (checkbox.checked && input.value.trim()) {
+                group.classList.add('active');
+            } else {
+                group.classList.remove('active');
+            }
+        }
+        var skuInput = document.getElementById('manualSKU');
+        var skuCheckbox = document.getElementById('enableSKU');
+        var barcodeInput = document.getElementById('manualBarcode');
+        var barcodeCheckbox = document.getElementById('enableBarcode');
         if (barcodeInput && barcodeCheckbox) {
             barcodeInput.addEventListener('input', function() {
                 updateFormGroupActive(barcodeInput, barcodeCheckbox);
@@ -599,9 +773,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     barcodeInput.value = '';
                     updateFormGroupActive(barcodeInput, barcodeCheckbox);
-                    if (document.activeElement === barcodeInput) {
-                        barcodeInput.blur();
-                    }
+                    setTimeout(function() {
+                        if (document.activeElement === barcodeInput) {
+                            barcodeInput.blur();
+                        }
+                    }, 10);
                 }
             });
             // On page load
@@ -609,3 +785,5 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 })();
+
+// (Removed duplicate Add Items Modal logic - unified above)
