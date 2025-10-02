@@ -166,8 +166,8 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // Close button handler
-        const closeBtn = node.querySelector('#closeInlineAddItems');
-        if (closeBtn) closeBtn.addEventListener('click', () => closeInlineAddItemsPanel());
+    const backBtn = node.querySelector('#backInlineAddItems');
+    if (backBtn) backBtn.addEventListener('click', () => closeInlineAddItemsPanel());
 
         // Submit handler
         const form = node.querySelector('#inlineAddItemsForm');

@@ -111,18 +111,12 @@ if (!isset($_SESSION['user_id'])) {
 <!-- Scanner/Manual Modal (moved outside content area) -->
 <div class="modal" id="scannerModal">
     <div class="modal-content scanner-modal">
-        <div class="modal-header">
-            <h2 class= "modal-title">Add Item</h2>
-            <span class="close" id="closeScanner">&times;</span>
-        </div>
-        <div class="modal-divider"></div>
-        <!-- Tab Style Navigation -->
-        <div class="modal-tabs">
-            <button class="scanner-tab active" id="scanTab">SCAN</button>
-            <button class="scanner-tab" id="manualTab">MANUAL</button>
-        </div>
         <div class="modal-body">
             <div id="baseAddFlow" class="base-add-flow">
+            <div class="modal-tabs">
+                <button class="scanner-tab active" id="scanTab">SCAN</button>
+                <button class="scanner-tab" id="manualTab">MANUAL</button>
+            </div>
             <!-- Scanner Mode -->
             <div id="scannerMode" class="mode-content">
                 <!-- Camera Scanner -->
@@ -140,9 +134,6 @@ if (!isset($_SESSION['user_id'])) {
                         <div class="loading-spinner"></div>
                         <h3>SCANNING VIA SCANNER...</h3>
                     </div>
-                </div>
-                <div class="skip-section">
-                    <button type="button" class="skip-btn" id="skipScanner">Skip for now</button>
                 </div>
             </div>
             
@@ -163,13 +154,12 @@ if (!isset($_SESSION['user_id'])) {
                         <label for="manualBarcode">Barcode</label>
                     </div>
                     <button class="btn btn-primary" id="nextBtn">Next</button>
-                    <div class="skip-section">
-                        <button type="button" class="skip-btn" id="skipManualEntry">Skip for now</button>
-                    </div>
                 </div>
             </div>
+            <div class="skip-section">
+                <button type="button" class="skip-btn" id="skipManualEntry">Skip for now</button>
             </div>
-            
+            </div>
             <!-- Product Form Mode removed -->
             <!-- Inline Add Items Panel mount point -->
             <div id="inlineAddItemsMount"></div>

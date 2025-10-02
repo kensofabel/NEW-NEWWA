@@ -229,6 +229,94 @@
 }
 
 /* Add Items modal: remove global black overlay and fade */
+/* Custom Toggle Switch with Text Inside */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 28px;
+}
+.switch input[type="checkbox"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #888;
+        transition: .4s;
+        border-radius: 28px;
+        pointer-events: auto;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: #fff;
+    transition: .4s;
+    border-radius: 50%;
+}
+.switch input:checked + .slider {
+    background-color: #ff9800;
+}
+.switch input:checked + .slider:before {
+    transform: translateX(22px);
+}
+/* Custom Toggle Switch for Track Stock */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+}
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #888;
+    transition: .4s;
+    border-radius: 22px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #fff;
+    transition: .4s;
+    border-radius: 50%;
+}
+.switch input:checked + .slider {
+    background-color: #ff9800;
+}
+.switch input:checked + .slider:before {
+    transform: translateX(18px);
+}
+/* Remove .form-group animation and input transition for scanner modal and add items modal */
+.scanner-modal .form-group,
+#addItemsModal .form-group,
+.add-items-panel .form-group {
+    animation: none !important;
+}
+
 #addItemsModal {
     background: transparent !important; /* No dimmed backdrop */
     animation: none !important;        /* Disable global fadeIn */
@@ -282,9 +370,10 @@
 }
 
 /* Inline close button inside panel */
-.add-items-panel .inline-close {
+.add-items-panel .inline-back {
     position: absolute;
-    right: 12px;
+    left: 12px;
+    right: auto;
     top: 12px;
     width: 32px;
     height: 32px;
@@ -296,10 +385,18 @@
     color: #fff;
     cursor: pointer;
     border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    line-height: 1;
+    text-align: center;
+    font-family: monospace, 'Arial', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1.7rem !important;
 }
-.add-items-panel .inline-close:hover {
+.add-items-panel .inline-back:hover {
     background: #ff9800;
     color: #232323;
+    box-shadow: 0 4px 16px rgba(255,152,0,0.25);
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s !important;
 }
 
 /* FB-like modal animations (zoom + slight lift) */
@@ -352,7 +449,7 @@ body #addItemsModal .modal-content.fb-modal-out {
     justify-content: center;
     align-items: center;
     gap: 45px;
-    margin: 40px 0 -10px 0; /* Increased top margin to move tabs lower */
+    margin: 10px 0 30px 0; /* Increased top margin to move tabs lower */
 }
 
 /* Tab Style Buttons - Previous Button Style */
@@ -527,26 +624,19 @@ body #addItemsModal .modal-content.fb-modal-out {
     margin-top: 25px !important;
 }
 
-/* Disable ALL transitions for inputs and labels */
-#scannerModal .manual-form input,
-#scannerModal .manual-form label,
-#scannerModal .manual-form *,
-#scannerModal input,
-#scannerModal label {
-    animation: none !important;
+/* Float label on focus for product-form */
+.product-form .form-group input[type="text"]:focus + label,
+.product-form .form-group input[type="number"]:focus + label {
+    top: -10px;
+    left: 0;
+    font-size: 0.85rem;
+    color: #ff9800 !important;
+    padding: 0 4px;
+    z-index: 3;
 }
 
-/* Floating label effect for manual and product form inputs */
-.manual-form .form-group,
-.product-form .form-group {
-    position: relative;
-}
-/* Floating label effect for manual form inputs only */
-.manual-form .form-group {
-    position: relative;
-}
- .manual-form input[type="text"],
- .manual-form input[type="number"] {
+.manual-form input[type="text"],
+.manual-form input[type="number"] {
     margin-left: 5px !important;
     text-indent: 0 !important;
     width: calc(100% - 30px) !important;
@@ -709,8 +799,8 @@ body #addItemsModal .modal-content.fb-modal-out {
 /* Skip Section */
 .skip-section {
     position: absolute;
-    margin-bottom: 30px;
-    bottom: 20px;
+    margin-top: 0;
+    bottom: -10px;
     left: 50%;
     transform: translateX(-50%);
 }
@@ -753,41 +843,6 @@ body #addItemsModal .modal-content.fb-modal-out {
     margin-right: 0;
 }
 
-/* Facebook-style circular close button, perfectly centered vertically in header */
-.scanner-modal .close {
-    position: absolute !important;
-    right: -25px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: 1.5rem !important;
-    color: #fff !important;
-    background: #444 !important;
-    border: none;
-    cursor: pointer !important;
-    z-index: 10 !important;
-    transition: color 0.2s, background 0.2s !important;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.10);
-    padding: 0;
-    line-height: 1;
-    text-align: center;
-    font-family: monospace, 'Arial', sans-serif !important;
-    font-weight: 700 !important;
-    font-size: 1.7rem !important;
-}
-
-.scanner-modal .close:hover {
-    background: #ff9800 !important;
-    color: #232323 !important;
-    box-shadow: 0 4px 16px rgba(255,152,0,0.25);
-    transition: background 0.2s, color 0.2s, box-shadow 0.2s !important;
-}
-
 /* Divider: block, negative margin to escape modal padding */
 .modal-divider {
     display: block;
@@ -812,53 +867,6 @@ body #addItemsModal .modal-content.fb-modal-out {
     }
 }
 
-/* Tabs below header, centered */
-.scanner-modal .modal-tabs {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 45px;
-    margin: 40px 0 -10px 0; /* Increased top margin to move tabs lower */
-}
-
-/* Tab Style Buttons - Previous Button Style */
-.scanner-tab {
-    background: #ff9800;
-    color: #232323;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 70px;
-    justify-content: center;
-    user-select: none;
-    position: relative;
-    z-index: 10;
-}
-
-.scanner-tab.active {
-    background: #ff9800;
-    color: #232323;
-    transform: scale(1.05);
-}
-
-.scanner-tab:not(.active) {
-    background: #333;
-    color: #dbdbdb;
-}
-
-.scanner-tab:hover {
-    background: #ff6600;
-    color: #232323;
-    transform: scale(1.05);
-}
-
 .form-group.hidden-input input[type="text"] {
     opacity: 0;
     pointer-events: none;
@@ -873,3 +881,62 @@ body #addItemsModal .modal-content.fb-modal-out {
     transform: translateX(-40px);
     opacity: 0;
 }
+
+/* Forms */
+.product-form {
+    background: #232323;
+    padding: 30px;
+    border-radius: 15px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+
+/* Make product-form inputs match manual-form */
+.product-form input[type="text"],
+.product-form input[type="number"] {
+    margin-left: 5px !important;
+    text-indent: 0 !important;
+    width: calc(100% - 30px) !important;
+    color: #dbdbdb !important;
+    border: none !important;
+    border-bottom: .5px solid #555 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    height: 35px !important;
+    padding: 8px 0 8px 0 !important;
+    text-align: left !important;
+    font-size: 1rem !important;
+    transition: border-color 0.2s;
+    outline: none !important;
+}
+
+.product-form input[type="text"]:focus,
+.product-form input[type="number"]:focus {
+    border-bottom: .5px solid #ff9800 !important;
+    background: transparent !important;
+    color: #dbdbdb !important;
+}
+
+.product-form .form-group label {
+    position: absolute;
+    left: 5px;
+    top: 18px;
+    color: #888;
+    font-size: 1rem;
+    pointer-events: none;
+    background: transparent;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
+    z-index: 2;
+}
+
+    .form-group label[for="trackStockToggle"],
+    .form-group label[for="inlineTrackStockToggle"] {
+        left: -10px;
+    }
