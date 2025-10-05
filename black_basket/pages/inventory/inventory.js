@@ -1,3 +1,6 @@
+// Declare scannerModal only once at the top
+const scannerModal = document.getElementById('scannerModal');
+
 document.addEventListener('DOMContentLoaded', function () {
     // Helper to enable/disable Next button
     function updateNextButtonState() {
@@ -75,7 +78,6 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchInventory();
 
     // Scanner Modal Logic
-    const scannerModal = document.getElementById('scannerModal');
     const addBtn = document.getElementById('addProductBtn');
     const closeScanner = document.getElementById('closeScanner');
     const scanTab = document.getElementById('scanTab');
@@ -636,6 +638,24 @@ document.addEventListener('DOMContentLoaded', function () {
         goBackBtn.addEventListener('click', goBackToTabs);
     }
 
+    const addProductBtn = document.getElementById('addProductBtn');
+    if (addProductBtn && scannerModal) {
+        addProductBtn.onclick = function() {
+            scannerModal.style.display = 'flex';
+            showTab('addItems');
+        };
+    }
+    // Optionally, add logic to close modal when clicking outside or pressing Escape
+    window.onclick = function(e) {
+        if (e.target === scannerModal) {
+            scannerModal.style.display = 'none';
+        }
+    };
+    window.onkeydown = function(e) {
+        if (e.key === 'Escape') {
+            scannerModal.style.display = 'none';
+        }
+    };
 });
 
 // Checkbox auto-check/uncheck logic for manual SKU/Barcode
@@ -786,4 +806,103 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 })();
 
-// (Removed duplicate Add Items Modal logic - unified above)
+// --- TAB PANEL LOGIC FOR MODAL ---
+// Tab names: 'scan', 'manual', 'addItems'
+let currentTab = 'scan';
+let previousTab = 'scan';
+
+// Helper: always show the correct tab panel
+function showTab(tabName, transition = true) {
+    const scanPanel = document.getElementById('scanTabPanel');
+    const manualPanel = document.getElementById('manualTabPanel');
+    const addItemsPanel = document.getElementById('addItemsTabPanel');
+    // Hide all panels
+    [scanPanel, manualPanel, addItemsPanel].forEach(panel => {
+        if (panel) {
+            panel.style.display = 'none';
+            panel.classList.remove('active', 'slide-in', 'slide-out');
+        }
+    });
+    // Show/hide tab buttons
+    var modalTabs = document.querySelector('.modal-tabs');
+    var scanTabBtn = document.getElementById('scanTab');
+    var manualTabBtn = document.getElementById('manualTab');
+    if (tabName === 'addItems') {
+        if (modalTabs) modalTabs.style.display = 'none';
+        if (scanTabBtn) scanTabBtn.classList.remove('active');
+        if (manualTabBtn) manualTabBtn.classList.remove('active');
+    } else {
+        if (modalTabs) modalTabs.style.display = 'flex';
+        if (scanTabBtn) scanTabBtn.classList.toggle('active', tabName === 'scan');
+        if (manualTabBtn) manualTabBtn.classList.toggle('active', tabName === 'manual');
+    }
+    // Show the requested panel
+    const activePanel = {
+        scan: scanPanel,
+        manual: manualPanel,
+        addItems: addItemsPanel
+    }[tabName];
+    if (activePanel) {
+        activePanel.style.display = 'flex';
+        activePanel.classList.add('active');
+        if (transition) {
+            activePanel.classList.add('slide-in');
+            setTimeout(() => activePanel.classList.remove('slide-in'), 400);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Tab buttons
+    const scanTabBtn = document.getElementById('scanTab');
+    const manualTabBtn = document.getElementById('manualTab');
+    // Panels
+    const scanPanel = document.getElementById('scanTabPanel');
+    const manualPanel = document.getElementById('manualTabPanel');
+    const addItemsPanel = document.getElementById('addItemsTabPanel');
+    // Add Items triggers
+    const skipScannerBtn = document.getElementById('skipScanner');
+    const skipManualEntryBtn = document.getElementById('skipManualEntry');
+    // Add Items panel buttons
+    function attachAddItemsPanelListeners() {
+        if (!addItemsPanel) return;
+        // Back button
+        const backBtn = addItemsPanel.querySelector('#backInlineAddItems');
+        if (backBtn) backBtn.onclick = () => showTab(previousTab);
+        // Cancel button
+        const cancelBtn = addItemsPanel.querySelector('.cancel-secondary');
+        if (cancelBtn) cancelBtn.onclick = () => showTab(previousTab);
+        // Add button (form submit)
+        const addBtn = addItemsPanel.querySelector('.btn.btn-primary');
+        const form = addItemsPanel.querySelector('#inlineAddItemsForm');
+        if (addBtn && form) {
+            addBtn.onclick = function(e) {
+                e.preventDefault();
+                form.requestSubmit();
+            };
+        }
+        // Form submit
+        if (form) {
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                // Collect form data here
+                showTab(previousTab);
+                return false;
+            };
+        }
+    }
+    // Tab switching
+    if (scanTabBtn) scanTabBtn.onclick = () => showTab('scan');
+    if (manualTabBtn) manualTabBtn.onclick = () => showTab('manual');
+    // Add Items triggers
+    if (skipScannerBtn) skipScannerBtn.onclick = () => {
+        showTab('addItems');
+        attachAddItemsPanelListeners();
+    };
+    if (skipManualEntryBtn) skipManualEntryBtn.onclick = () => {
+        showTab('addItems');
+        attachAddItemsPanelListeners();
+    };
+    // Initial tab
+    showTab('scan', false);
+});

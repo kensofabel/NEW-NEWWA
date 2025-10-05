@@ -108,67 +108,122 @@ if (!isset($_SESSION['user_id'])) {
     <!-- Close main content area -->
     </div>
 
-<!-- Scanner/Manual Modal (moved outside content area) -->
+<!-- Scanner/Manual/Add Items Modal with Tab Panels -->
 <div class="modal" id="scannerModal">
     <div class="modal-content scanner-modal">
-        <div class="modal-body">
-            <div id="baseAddFlow" class="base-add-flow">
-            <div class="modal-tabs">
-                <button class="scanner-tab active" id="scanTab">SCAN</button>
-                <button class="scanner-tab" id="manualTab">MANUAL</button>
-            </div>
-            <!-- Scanner Mode -->
-            <div id="scannerMode" class="mode-content">
-                <!-- Camera Scanner -->
-                <div id="cameraScanner" class="scanner-section">
+        <div class="modal-tabs">
+            <button class="scanner-tab" id="scanTab">SCAN</button>
+            <button class="scanner-tab" id="manualTab">MANUAL</button>
+        </div>
+        <div class="tab-panels">
+            <!-- Scan Tab Panel -->
+            <div id="scanTabPanel" class="tab-panel">
+                <div class="modal-body">
                     <div class="camera-container">
                         <video id="cameraVideo" autoplay playsinline></video>
                         <div class="scanner-overlay">
                             <div class="scanner-line"></div>
                         </div>
                     </div>
-                </div>
-                <!-- Hardware Scanner -->
-                <div id="hardwareScanner" class="scanner-section" style="display:none;">
-                    <div class="loading-container">
-                        <div class="loading-spinner"></div>
-                        <h3>SCANNING VIA SCANNER...</h3>
+                    <div class="skip-section">
+                        <button type="button" class="skip-btn" id="skipScanner">Skip for now</button>
                     </div>
                 </div>
             </div>
-            
-            <!-- Manual Mode -->
-            <div id="manualMode" class="mode-content" style="display:none;">
-                <div class="manual-form">
-                    <div class="form-description">
-                        <p>Enter the product's barcode or SKU to identify the item you want to add to inventory.</p>
+            <!-- Manual Tab Panel -->
+            <div id="manualTabPanel" class="tab-panel" style="display:none;">
+                <div class="modal-body">
+                    <div class="manual-form">
+                        <div class="form-description">
+                            <p>Enter the product's barcode or SKU to identify the item you want to add to inventory.</p>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="enableSKU" class="field-checkbox">
+                            <input type="text" id="manualSKU" required placeholder=" ">
+                            <label for="manualSKU">SKU</label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <input type="checkbox" id="enableBarcode" class="field-checkbox">
+                            <input type="text" id="manualBarcode" required placeholder=" ">
+                            <label for="manualBarcode">Barcode</label>
+                        </div>
+                        <button class="btn btn-primary" id="nextBtn">Next</button>
                     </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="enableSKU" class="field-checkbox">
-                        <input type="text" id="manualSKU" required placeholder=" ">
-                        <label for="manualSKU">SKU</label>
+                    <div class="skip-section">
+                        <button type="button" class="skip-btn" id="skipManualEntry">Skip for now</button>
                     </div>
-                    <div class="form-group checkbox-group">
-                        <input type="checkbox" id="enableBarcode" class="field-checkbox">
-                        <input type="text" id="manualBarcode" required placeholder=" ">
-                        <label for="manualBarcode">Barcode</label>
-                    </div>
-                    <button class="btn btn-primary" id="nextBtn">Next</button>
                 </div>
             </div>
-            <div class="skip-section">
-                <button type="button" class="skip-btn" id="skipManualEntry">Skip for now</button>
+            <!-- Add Items/Product Tab Panel -->
+            <div id="addItemsTabPanel" class="tab-panel" style="display:none;">
+                <div class="modal-header">
+                    <h2 class="modal-title">Add Items</h2>
+                    <button type="button" class="inline-back" id="backInlineAddItems" aria-label="Back" title="Back">&larr;</button>
+                </div>
+                <div class="modal-divider"></div>
+                <div class="modal-body">
+                    <form id="inlineAddItemsForm" class="product-form">
+                        <!-- Row 1: Name | Category -->
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between;">
+                            <div class="form-group" style="flex:3;">
+                                <label for="inlineItemName">Name</label>
+                                <input type="text" id="inlineItemName" name="itemName" required class="input-box">
+                            </div>
+                            <div class="form-group" style="flex:2;">
+                                <label for="inlineItemCategory">Category</label>
+                                <input type="text" id="inlineItemCategory" name="itemCategory" required class="input-box" autocomplete="off">
+                            </div>
+                        </div>
+                        <!-- Row 2: Price | Cost | Track Stock Toggle -->
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between;">
+                            <div class="form-group" style="flex:1.45;">
+                                <label for="inlineItemPrice">Price</label>
+                                <input type="text" id="inlineItemPrice" name="itemPrice" required class="input-box" currency-localization="₱" placeholder="Optional">
+                            </div>
+                            <div class="form-group" style="flex:1.45;">
+                                <label for="inlineItemCost">Cost</label>
+                                <input type="text" id="inlineItemCost" name="itemCost" required class="input-box" currency-localization="₱" value="₱0.00">
+                            </div>
+                            <div class="form-group" style="flex:2;">
+                                <label for="inline  TrackStockToggle">Track Stock</label>
+                                <label class="switch" style="left: 10px;">
+                                    <input type="checkbox" id="inlineTrackStockToggle" name="trackStock">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between; margin-top: -10px;">
+                            <div class="form-group" style="flex:2;">
+                                <label for="inlineItemSKU">SKU</label>
+                                <input type="text" id="inlineItemSKU" name="itemSKU" required class="input-box" placeholder="Unique item identifier">
+                            </div>
+                            <div class="form-group" style="flex:2.5;">
+                                <label for="inlineItemBarcode">Barcode</label>
+                                <input type="text" id="inlineItemBarcode" name="itemBarcode" required class="input-box">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer" style="position: sticky; bottom: 0; z-index: 10; padding: 10px 20px;">
+                    <div style="display: flex; flex-direction: column; width: 100%; gap: 8px;">
+                        <!-- First row: Checkbox -->
+                        <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%;">
+                            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="availablePOS" name="availablePOS" class="field-checkbox">
+                                <label for="availablePOS">This item is available in POS</label>
+                            </div>
+                        </div>
+                        <!-- Second row: Cancel (left) and Add (right) -->
+                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="cancel-secondary" style="width: 90px; height: 40px;">Cancel</button>
+                            <button type="submit" class="btn btn-primary" style="width: 120px; height: 40px;">Add Item</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            </div>
-            <!-- Product Form Mode removed -->
-            <!-- Inline Add Items Panel mount point -->
-            <div id="inlineAddItemsMount"></div>
         </div>
     </div>
 </div>
-
-<!-- Add Items Modal (injected) -->
-<?php include 'add-items-modal.html'; ?>
 
 <script>
 function showInventoryTab(tab) {

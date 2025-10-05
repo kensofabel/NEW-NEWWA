@@ -1,112 +1,75 @@
 <!-- Add Items Modal -->
 <div class="modal" id="addItemsModal" style="display:none;">
     <div class="modal-content scanner-modal">
-        <div class="modal-header">
-            <h2 class="modal-title">Add Items</h2>
-            <span class="close" id="closeAddItems">&times;</span>
-        </div>
-        <div class="modal-divider"></div>
-        <div class="modal-body">
-            <!-- Add your form fields for adding items here -->
-            <form id="addItemsForm" class="product-form">
-                <!-- Row 1: Name | Category -->
-                <div class="form-row" style="display: flex; gap: 18px; justify-content: space-between;">
-                    <div class="form-group" style="flex:2;">
-                        <input type="text" id="itemName" name="itemName" required placeholder=" ">
-                        <label for="itemName">Name</label>
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <input type="text" id="itemCategory" name="itemCategory" required placeholder=" ">
-                        <label for="itemCategory">Category</label>
+        <template id="inlineAddItemsTemplate">
+            <div class="add-items-panel" id="inlineAddItemsPanel">
+                <div class="modal-header">
+                    <h2 class="modal-title">Add Items</h2>
+                    <button type="button" class="inline-back" id="backInlineAddItems" aria-label="Back" title="Back">&larr;</button>
+                </div>
+                <div class="modal-divider"></div>
+                <div class="modal-body">
+                    <form id="inlineAddItemsForm" class="product-form">
+                        <!-- Row 1: Name | Category -->
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between;">
+                            <div class="form-group" style="flex:3;">
+                                <label for="inlineItemName">Name</label>
+                                <input type="text" id="inlineItemName" name="itemName" required class="input-box">
+                            </div>
+                            <div class="form-group" style="flex:2;">
+                                <label for="inlineItemCategory">Category</label>
+                                <input type="text" id="inlineItemCategory" name="itemCategory" required class="input-box" autocomplete="off">
+                            </div>
+                        </div>
+                        <!-- Row 2: Price | Cost | Track Stock Toggle -->
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between;">
+                            <div class="form-group" style="flex:1.45;">
+                                <label for="inlineItemPrice">Price</label>
+                                <input type="text" id="inlineItemPrice" name="itemPrice" required class="input-box" currency-localization="₱" placeholder="Optional">
+                            </div>
+                            <div class="form-group" style="flex:1.45;">
+                                <label for="inlineItemCost">Cost</label>
+                                <input type="text" id="inlineItemCost" name="itemCost" required class="input-box" currency-localization="₱" value="₱0.00">
+                            </div>
+                            <div class="form-group" style="flex:2;">
+                                <label for="inline  TrackStockToggle">Track Stock</label>
+                                <label class="switch" style="left: 10px;">
+                                    <input type="checkbox" id="inlineTrackStockToggle" name="trackStock">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between; margin-top: -10px;">
+                            <div class="form-group" style="flex:2;">
+                                <label for="inlineItemSKU">SKU</label>
+                                <input type="text" id="inlineItemSKU" name="itemSKU" required class="input-box" placeholder="Unique item identifier">
+                            </div>
+                            <div class="form-group" style="flex:2.5;">
+                                <label for="inlineItemBarcode">Barcode</label>
+                                <input type="text" id="inlineItemBarcode" name="itemBarcode" required class="input-box">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer" style="position: sticky; bottom: 0; z-index: 10; padding: 10px 20px;">
+                    <div style="display: flex; flex-direction: column; width: 100%; gap: 8px;">
+                        <!-- First row: Checkbox -->
+                        <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%;">
+                            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" id="availablePOS" name="availablePOS" class="field-checkbox">
+                                <label for="availablePOS">This item is available in POS</label>
+                            </div>
+                        </div>
+                        <!-- Second row: Cancel (left) and Add (right) -->
+                        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+                            <button type="button" class="cancel-secondary" style="width: 90px; height: 40px;">Cancel</button>
+                            <button type="submit" class="btn btn-primary" style="width: 120px; height: 40px;">Add Item</button>
+                        </div>
                     </div>
                 </div>
-                <!-- Row 2: Cost | Price | Track Stock Toggle -->
-                <div class="form-row" style="display: flex; gap: 18px; justify-content: space-between; margin-top: 18px;">
-                    <div class="form-group" style="flex:1;">
-                        <input type="number" step="0.01" id="itemCost" name="itemCost" required placeholder=" ">
-                        <label for="itemCost">Cost</label>
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <input type="number" step="0.01" id="itemPrice" name="itemPrice" required placeholder=" ">
-                        <label for="itemPrice">Price</label>
-                    </div>
-                    <div class="form-group" style="flex:1; display: flex; align-items: center; justify-content: center;">
-                        <label class="switch">
-                            <input type="checkbox" id="trackStockToggle" name="trackStock">
-                            <span class="slider"></span>
-                        </label>
-                        <label for="trackStockToggle" style="margin-left: 10px; margin-bottom: 0;">Track Stock</label>
-                    </div>
-                </div>
-                <!-- Row 3: Checkboxes -->
-                <div class="form-row" style="display: flex; gap: 18px; justify-content: space-between; margin-top: 18px;">
-                    <div class="form-group" style="flex:1; display: flex; align-items: center; gap: 10px;">
-                        <label for="trackStock" style="margin:0;">Track Stock</label>
-                        <input type="checkbox" id="trackStock" name="trackStock" style="width:18px;height:18px;">
-                    </div>
-                    <div class="form-group" style="flex:1; display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="availablePOS" name="availablePOS" style="width:18px;height:18px;">
-                        <label for="availablePOS" style="margin:0;">Available in POS</label>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 28px; width: 100%;">Add Item</button>
-            </form>
-        </div>
+            </div>
+        </template>
     </div>
 </div>
-
-<!-- Inline Add Items Panel Template (used for in-modal slide) -->
-<template id="inlineAddItemsTemplate">
-    <div class="add-items-panel" id="inlineAddItemsPanel">
-        <div class="modal-header">
-            <h2 class="modal-title">Add Items</h2>
-            <button type="button" class="inline-back" id="backInlineAddItems" aria-label="Back" title="Back">&larr;</button>
-        </div>
-        <div class="modal-divider"></div>
-        <div class="modal-body">
-            <form id="inlineAddItemsForm" class="product-form">
-                <!-- Row 1: Name | Category -->
-                <div class="form-row" style="display: flex; gap: 18px; justify-content: space-between;">
-                    <div class="form-group" style="flex:2;">
-                        <input type="text" id="inlineItemName" name="itemName" required placeholder=" ">
-                        <label for="inlineItemName">Name</label>
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <input type="text" id="inlineItemCategory" name="itemCategory" required placeholder=" ">
-                        <label for="inlineItemCategory">Category</label>
-                    </div>
-                </div>
-                <!-- Row 2: Cost | Price | Track Stock Toggle -->
-                <div class="form-row" style="display: flex; gap: 18px; justify-content: space-between; margin-top: 18px;">
-                    <div class="form-group" style="flex:1;">
-                        <input type="number" step="0.01" id="inlineItemCost" name="itemCost" required placeholder=" ">
-                        <label for="inlineItemCost">Cost</label>
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <input type="number" step="0.01" id="inlineItemPrice" name="itemPrice" required placeholder=" ">
-                        <label for="inlineItemPrice">Price</label>
-                    </div>
-                    <div class="form-group" style="flex:1; display: flex; align-items: center; justify-content: center;">
-                        <label class="switch" style="left: 0;">
-                            <input type="checkbox" id="inlineTrackStockToggle" name="trackStock">
-                            <span class="slider"></span>
-                        </label>
-                        <label for="inlineTrackStockToggle" style="margin-left: 55px;">Track Stock</label>
-                    </div>
-                </div>
-                <!-- Row 3: Checkboxes -->
-                <div class="form-row" style="display: flex; gap: 18px; justify-content: space-between; margin-top: 18px;">
-                    <div class="form-group" style="flex:1; display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="inlineTrackStock" name="trackStock" style="width:18px;height:18px;">
-                        <label for="inlineTrackStock" style="margin:0;">Track Stock</label>
-                    </div>
-                    <div class="form-group" style="flex:1; display: flex; align-items: center; gap: 10px;">
-                        <input type="checkbox" id="inlineAvailablePOS" name="availablePOS" style="width:18px;height:18px;">
-                        <label for="inlineAvailablePOS" style="margin:0;">Available in POS</label>
-                    </div>
-                </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 28px; width: 100%;">Add Item</button>
-            </form>
-        </div>
-    </div>
- </template>
+<script src="../../assets/js/currency-localization.js"></script>
+<script src="../../assets/js/category-dropdown.js"></script>
