@@ -811,18 +811,139 @@ document.addEventListener('DOMContentLoaded', function () {
 let currentTab = 'scan';
 let previousTab = 'scan';
 
-// Helper: always show the correct tab panel
+// Helper: always show the correct tab panel with transitions
 function showTab(tabName, transition = true) {
     const scanPanel = document.getElementById('scanTabPanel');
     const manualPanel = document.getElementById('manualTabPanel');
     const addItemsPanel = document.getElementById('addItemsTabPanel');
-    // Hide all panels
-    [scanPanel, manualPanel, addItemsPanel].forEach(panel => {
-        if (panel) {
-            panel.style.display = 'none';
-            panel.classList.remove('active', 'slide-in', 'slide-out');
+    // Hide all panels, but if opening addItems, animate previous panel out first, then animate addItems in
+    if (tabName === 'addItems') {
+        const prevPanel = { scan: scanPanel, manual: manualPanel }[previousTab];
+        const modalContent = document.querySelector('.modal-content.scanner-modal');
+        if (addItemsPanel) {
+            // Make sure addItemsPanel is rendered for sizing
+            addItemsPanel.style.display = 'block';
+            // Temporarily set width to 'auto' to measure natural content width
+            const prevWidth = addItemsPanel.style.width;
+            addItemsPanel.style.width = 'auto';
+            // Measure new panel height and natural width
+            const newHeight = addItemsPanel.offsetHeight;
+            const newWidth = addItemsPanel.scrollWidth;
+            // Restore panel width
+            addItemsPanel.style.width = prevWidth || '';
+            // Set modal container height and width to new panel size before transition
+            if (modalContent) {
+                modalContent.style.height = newHeight + 'px';
+                modalContent.style.width = newWidth + 'px';
+            }
+            // Start transition
+            addItemsPanel.classList.add('slide-in');
+            addItemsPanel.classList.add('active');
+            if (prevPanel) {
+                prevPanel.classList.add('slide-out-left');
+                prevPanel.classList.remove('slide-in');
+                prevPanel.classList.add('active');
+                prevPanel.style.display = 'block';
+            }
+            // After animation, hide previous panel and reset Add Items position and modal size
+            setTimeout(() => {
+                if (prevPanel) {
+                    prevPanel.classList.remove('active', 'slide-out-left');
+                    prevPanel.style.display = 'none';
+                }
+                addItemsPanel.classList.remove('slide-in');
+                addItemsPanel.style.position = 'relative';
+                if (modalContent) {
+                    modalContent.style.height = '';
+                    modalContent.style.width = '';
+                }
+            }, 250);
         }
-    });
+        // Hide tab buttons
+        var modalTabs = document.querySelector('.modal-tabs');
+        var scanTabBtn = document.getElementById('scanTab');
+        var manualTabBtn = document.getElementById('manualTab');
+        if (modalTabs) modalTabs.style.display = 'none';
+        if (scanTabBtn) scanTabBtn.classList.remove('active');
+        if (manualTabBtn) manualTabBtn.classList.remove('active');
+    } else if (currentTab === 'addItems') {
+        // Reverse transition: going back from Add Items to scan/manual
+        const prevPanel = { scan: scanPanel, manual: manualPanel }[tabName];
+        const modalContent = document.querySelector('.modal-content.scanner-modal');
+        const modalTabs = document.querySelector('.modal-tabs');
+        if (addItemsPanel && prevPanel) {
+            // Make sure previous panel is rendered for sizing
+            prevPanel.style.display = 'block';
+            prevPanel.style.width = 'auto';
+            const newHeight = prevPanel.offsetHeight;
+            const newWidth = prevPanel.scrollWidth;
+            prevPanel.style.width = '';
+            if (modalContent) {
+                modalContent.style.height = newHeight + 'px';
+                modalContent.style.width = newWidth + 'px';
+            }
+            // Animate Add Items out right, previous panel in left
+            addItemsPanel.classList.add('slide-out-right');
+            addItemsPanel.classList.remove('slide-in');
+            addItemsPanel.classList.add('active');
+            prevPanel.classList.add('slide-in-left');
+            prevPanel.classList.add('active');
+            prevPanel.style.display = 'block';
+            // Animate tab buttons in with content
+            if (modalTabs) {
+                modalTabs.classList.add('slide-in-left');
+                modalTabs.classList.remove('slide-out-right');
+                modalTabs.style.display = 'flex';
+            }
+            // After animation, hide Add Items panel and reset modal size/tab buttons
+            setTimeout(() => {
+                addItemsPanel.classList.remove('active', 'slide-out-right');
+                addItemsPanel.style.display = 'none';
+                prevPanel.classList.remove('slide-in-left');
+                prevPanel.style.position = 'relative';
+                if (modalContent) {
+                    modalContent.style.height = '';
+                    modalContent.style.width = '';
+                }
+                if (modalTabs) {
+                    modalTabs.classList.remove('slide-in-left');
+                }
+            }, 250);
+        }
+        // Show tab buttons
+        var scanTabBtn = document.getElementById('scanTab');
+        var manualTabBtn = document.getElementById('manualTab');
+        if (modalTabs) modalTabs.style.display = 'flex';
+        if (scanTabBtn) scanTabBtn.classList.toggle('active', tabName === 'scan');
+        if (manualTabBtn) manualTabBtn.classList.toggle('active', tabName === 'manual');
+    } else {
+        // Hide all panels instantly
+        [scanPanel, manualPanel, addItemsPanel].forEach(panel => {
+            if (panel) {
+                panel.style.display = 'none';
+                panel.classList.remove('active', 'slide-in', 'slide-out-left');
+                panel.style.position = 'absolute';
+            }
+        });
+        // Show/hide tab buttons
+        var modalTabs = document.querySelector('.modal-tabs');
+        var scanTabBtn = document.getElementById('scanTab');
+        var manualTabBtn = document.getElementById('manualTab');
+        if (modalTabs) modalTabs.style.display = 'flex';
+        if (scanTabBtn) scanTabBtn.classList.toggle('active', tabName === 'scan');
+        if (manualTabBtn) manualTabBtn.classList.toggle('active', tabName === 'manual');
+        // Show the requested panel
+        const activePanel = {
+            scan: scanPanel,
+            manual: manualPanel,
+            addItems: addItemsPanel
+        }[tabName];
+        if (activePanel) {
+            activePanel.style.display = 'block';
+            activePanel.classList.add('active');
+            activePanel.style.position = 'relative';
+        }
+    }
     // Show/hide tab buttons
     var modalTabs = document.querySelector('.modal-tabs');
     var scanTabBtn = document.getElementById('scanTab');
@@ -836,20 +957,28 @@ function showTab(tabName, transition = true) {
         if (scanTabBtn) scanTabBtn.classList.toggle('active', tabName === 'scan');
         if (manualTabBtn) manualTabBtn.classList.toggle('active', tabName === 'manual');
     }
-    // Show the requested panel
-    const activePanel = {
-        scan: scanPanel,
-        manual: manualPanel,
-        addItems: addItemsPanel
-    }[tabName];
-    if (activePanel) {
-        activePanel.style.display = 'flex';
-        activePanel.classList.add('active');
-        if (transition) {
-            activePanel.classList.add('slide-in');
-            setTimeout(() => activePanel.classList.remove('slide-in'), 400);
+    // Show the requested panel (normal case)
+    if (!(currentTab === 'addItems' && tabName !== 'addItems')) {
+        const activePanel = {
+            scan: scanPanel,
+            manual: manualPanel,
+            addItems: addItemsPanel
+        }[tabName];
+        if (activePanel) {
+            activePanel.style.display = 'flex';
+            activePanel.classList.add('active');
+            // Only animate when opening addItems
+            if (tabName === 'addItems') {
+                activePanel.classList.add('slide-in');
+                setTimeout(() => activePanel.classList.remove('slide-in'), 400);
+            }
         }
     }
+    // Track previous tab for back/cancel
+    if (tabName !== 'addItems') {
+        previousTab = tabName;
+    }
+    currentTab = tabName;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -892,15 +1021,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     // Tab switching
-    if (scanTabBtn) scanTabBtn.onclick = () => showTab('scan');
-    if (manualTabBtn) manualTabBtn.onclick = () => showTab('manual');
+    if (scanTabBtn) scanTabBtn.onclick = () => showTab('scan', false);
+    if (manualTabBtn) manualTabBtn.onclick = () => showTab('manual', false);
     // Add Items triggers
     if (skipScannerBtn) skipScannerBtn.onclick = () => {
-        showTab('addItems');
+        showTab('addItems', true);
         attachAddItemsPanelListeners();
     };
     if (skipManualEntryBtn) skipManualEntryBtn.onclick = () => {
-        showTab('addItems');
+        showTab('addItems', true);
         attachAddItemsPanelListeners();
     };
     // Initial tab
