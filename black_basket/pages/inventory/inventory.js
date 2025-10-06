@@ -15,6 +15,511 @@ document.addEventListener('DOMContentLoaded', function () {
         var barcodeValid = barcodeCheckbox && barcodeCheckbox.checked && barcodeInput && barcodeInput.value.trim();
         nextBtn.disabled = !(skuValid || barcodeValid);
     }
+
+    // Auto-focus input when checkbox is checked
+    function setupCheckboxAutoFocus() {
+        var skuInput = document.getElementById('manualSKU');
+        var skuCheckbox = document.getElementById('enableSKU');
+        var barcodeInput = document.getElementById('manualBarcode');
+        var barcodeCheckbox = document.getElementById('enableBarcode');
+        
+        // Flags to prevent blur interference during manual interaction
+        var skuIgnoreBlur = false;
+        var barcodeIgnoreBlur = false;
+
+        if (skuCheckbox && skuInput) {
+            // Set flag when clicking on checkbox to prevent blur interference
+            skuCheckbox.addEventListener('mousedown', function() {
+                if (skuCheckbox.checked) { // If currently checked, user is about to uncheck
+                    skuIgnoreBlur = true;
+                }
+            });
+            
+            skuCheckbox.addEventListener('change', function() {
+                if (skuCheckbox.checked) {
+                    skuIgnoreBlur = false; // Reset flag when checking
+                    skuInput.focus();
+                } else {
+                    skuInput.value = '';
+                    skuInput.blur();
+                    // Reset flag after unchecking is complete
+                    setTimeout(function() {
+                        skuIgnoreBlur = false;
+                    }, 100);
+                }
+                updateNextButtonState();
+            });
+            
+            // Also listen to input changes for Next button validation
+            skuInput.addEventListener('input', updateNextButtonState);
+            
+            // Auto-uncheck checkbox if input loses focus with no data
+            skuInput.addEventListener('blur', function() {
+                // Use setTimeout to ensure this runs after any checkbox click events
+                setTimeout(function() {
+                    if (!skuIgnoreBlur && skuCheckbox.checked && !skuInput.value.trim()) {
+                        skuCheckbox.checked = false;
+                        updateNextButtonState();
+                    }
+                }, 50);
+            });
+        }
+
+        if (barcodeCheckbox && barcodeInput) {
+            // Set flag when clicking on checkbox to prevent blur interference
+            barcodeCheckbox.addEventListener('mousedown', function() {
+                if (barcodeCheckbox.checked) { // If currently checked, user is about to uncheck
+                    barcodeIgnoreBlur = true;
+                }
+            });
+            
+            barcodeCheckbox.addEventListener('change', function() {
+                if (barcodeCheckbox.checked) {
+                    barcodeIgnoreBlur = false; // Reset flag when checking
+                    barcodeInput.focus();
+                } else {
+                    barcodeInput.value = '';
+                    barcodeInput.blur();
+                    // Reset flag after unchecking is complete
+                    setTimeout(function() {
+                        barcodeIgnoreBlur = false;
+                    }, 100);
+                }
+                updateNextButtonState();
+            });
+            
+            // Also listen to input changes for Next button validation
+            barcodeInput.addEventListener('input', updateNextButtonState);
+            
+            // Auto-uncheck checkbox if input loses focus with no data
+            barcodeInput.addEventListener('blur', function() {
+                // Use setTimeout to ensure this runs after any checkbox click events
+                setTimeout(function() {
+                    if (!barcodeIgnoreBlur && barcodeCheckbox.checked && !barcodeInput.value.trim()) {
+                        barcodeCheckbox.checked = false;
+                        updateNextButtonState();
+                    }
+                }, 50);
+            });
+        }
+
+        // Initialize Next button state
+        updateNextButtonState();
+    }
+
+    // Initialize auto-focus functionality
+    setupCheckboxAutoFocus();
+
+    // Currency Auto-Prefix Functionality
+    function setupCurrencyInputs() {
+        // Get all inputs with currency-localization attribute
+        const currencyInputs = document.querySelectorAll('input[currency-localization]');
+        
+        currencyInputs.forEach(function(input) {
+            const prefix = input.getAttribute('currency-localization'); // Get the prefix (₱)
+            
+            // Don't set initial value - let placeholder show
+            
+            // Handle input event - add prefix when user starts typing
+            input.addEventListener('input', function() {
+                const value = this.value;
+                
+                // If empty, leave as is (shows placeholder)
+                if (value === '') {
+                    return;
+                }
+                
+                // If user is typing and doesn't have prefix, add it
+                if (value !== '' && !value.startsWith(prefix)) {
+                    // Only add numbers and decimal points
+                    const numericOnly = value.replace(/[^\d.]/g, '');
+                    if (numericOnly) {
+                        this.value = prefix + numericOnly;
+                        // Set cursor position after the currency symbol
+                        const cursorPos = prefix.length + numericOnly.length;
+                        this.setSelectionRange(cursorPos, cursorPos);
+                    }
+                }
+                
+                // Ensure proper decimal formatting
+                const currentValue = this.value;
+                if (currentValue.startsWith(prefix)) {
+                    const numericPart = currentValue.substring(prefix.length);
+                    const parts = numericPart.split('.');
+                    
+                    // Limit decimal places to 2
+                    if (parts.length > 1 && parts[1].length > 2) {
+                        const correctedValue = prefix + parts[0] + '.' + parts[1].substring(0, 2);
+                        this.value = correctedValue;
+                    }
+                }
+            });
+            
+            // Handle keydown for special cases
+            input.addEventListener('keydown', function(e) {
+                // Allow backspace/delete to clear everything including prefix
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    return; // Let default behavior handle it
+                }
+                
+                // Prevent typing non-numeric characters (except decimal point)
+                if (!/[\d.]/.test(e.key) && 
+                    !['Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) &&
+                    !(e.ctrlKey && ['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase()))) {
+                    e.preventDefault();
+                }
+            });
+            
+            // Handle blur event - format the value if it has content
+            input.addEventListener('blur', function() {
+                const value = this.value.trim();
+                
+                // If empty or just currency symbol, clear it
+                if (value === '' || value === prefix) {
+                    this.value = '';
+                    return;
+                }
+                
+                // If has currency symbol, format to 2 decimal places
+                if (value.startsWith(prefix)) {
+                    const numericPart = value.substring(prefix.length);
+                    const floatValue = parseFloat(numericPart);
+                    if (!isNaN(floatValue) && floatValue >= 0) {
+                        this.value = prefix + floatValue.toFixed(2);
+                    } else {
+                        this.value = '';
+                    }
+                }
+            });
+        });
+    }
+
+    // Initialize currency functionality
+    setupCurrencyInputs();
+    
+    // Category Autocomplete Functionality
+    function setupCategoryAutocomplete() {
+        const categoryInput = document.getElementById('inlineItemCategory');
+        const categoryDropdown = document.getElementById('categoryDropdown');
+        
+        if (!categoryInput || !categoryDropdown) return;
+        
+        // Move dropdown to body to escape modal clipping
+        document.body.appendChild(categoryDropdown);
+        
+        // Predefined categories (you can extend this list or fetch from API)
+        const existingCategories = [
+            'Fruits & Vegetables',
+            'Dairy & Eggs', 
+            'Meat & Poultry',
+            'Bakery',
+            'Beverages',
+            'Snacks',
+            'Frozen Foods',
+            'Household',
+            'Personal Care',
+            'Cleaning Supplies',
+            'Electronics',
+            'Office Supplies'
+        ];
+        
+        let highlightedIndex = -1;
+        let filteredCategories = [];
+        
+        // Show dropdown with categories
+        function showDropdown(categories, searchTerm = '') {
+            categoryDropdown.innerHTML = '';
+            filteredCategories = categories;
+            highlightedIndex = -1;
+            
+            // Position dropdown below the input field
+            const inputRect = categoryInput.getBoundingClientRect();
+            categoryDropdown.style.top = (inputRect.bottom + 2) + 'px';
+            categoryDropdown.style.left = inputRect.left + 'px';
+            categoryDropdown.style.width = inputRect.width + 'px';
+            
+            if (categories.length === 0 && searchTerm.trim() !== '') {
+                // Show "New Category" option when no matches
+                const newOption = document.createElement('div');
+                newOption.className = 'category-option new-category';
+                newOption.innerHTML = `
+                    <span>${searchTerm}</span>
+                    <span class="category-new-indicator">New Category</span>
+                `;
+                newOption.addEventListener('click', () => selectCategory(searchTerm));
+                categoryDropdown.appendChild(newOption);
+                filteredCategories = [searchTerm];
+            } else {
+                categories.forEach((category, index) => {
+                    const option = document.createElement('div');
+                    option.className = 'category-option';
+                    option.textContent = category;
+                    option.addEventListener('click', () => selectCategory(category));
+                    categoryDropdown.appendChild(option);
+                });
+            }
+            
+            categoryDropdown.classList.add('show');
+        }
+        
+        // Hide dropdown
+        function hideDropdown() {
+            categoryDropdown.classList.remove('show');
+            highlightedIndex = -1;
+        }
+        
+        // Select category
+        function selectCategory(category) {
+            categoryInput.value = category;
+            hideDropdown();
+            categoryInput.blur();
+        }
+        
+        // Filter categories based on input
+        function filterCategories(searchTerm) {
+            if (!searchTerm.trim()) {
+                return existingCategories;
+            }
+            
+            return existingCategories.filter(category => 
+                category.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+        
+        // Highlight option with keyboard navigation
+        function highlightOption(index) {
+            const options = categoryDropdown.querySelectorAll('.category-option');
+            
+            // Remove previous highlight
+            options.forEach(option => option.classList.remove('highlighted'));
+            
+            // Add new highlight
+            if (index >= 0 && index < options.length) {
+                options[index].classList.add('highlighted');
+                highlightedIndex = index;
+            }
+        }
+        
+        // Event listeners
+        categoryInput.addEventListener('focus', () => {
+            const filtered = filterCategories(categoryInput.value);
+            showDropdown(filtered, categoryInput.value);
+        });
+        
+        categoryInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value;
+            const filtered = filterCategories(searchTerm);
+            showDropdown(filtered, searchTerm);
+        });
+        
+        categoryInput.addEventListener('keydown', (e) => {
+            const options = categoryDropdown.querySelectorAll('.category-option');
+            
+            switch(e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    highlightedIndex = Math.min(highlightedIndex + 1, options.length - 1);
+                    highlightOption(highlightedIndex);
+                    break;
+                    
+                case 'ArrowUp':
+                    e.preventDefault();
+                    highlightedIndex = Math.max(highlightedIndex - 1, 0);
+                    highlightOption(highlightedIndex);
+                    break;
+                    
+                case 'Enter':
+                    e.preventDefault();
+                    if (highlightedIndex >= 0 && filteredCategories[highlightedIndex]) {
+                        selectCategory(filteredCategories[highlightedIndex]);
+                    } else if (categoryInput.value.trim()) {
+                        // If no highlighted option but there's text, create new category
+                        selectCategory(categoryInput.value.trim());
+                    }
+                    break;
+                    
+                case 'Escape':
+                    e.preventDefault();
+                    hideDropdown();
+                    categoryInput.blur();
+                    break;
+            }
+        });
+        
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!categoryInput.contains(e.target) && !categoryDropdown.contains(e.target)) {
+                hideDropdown();
+            }
+        });
+        
+        // Hide dropdown when input loses focus (with small delay for click handling)
+        categoryInput.addEventListener('blur', (e) => {
+            setTimeout(() => {
+                if (!categoryDropdown.contains(document.activeElement)) {
+                    hideDropdown();
+                }
+            }, 100);
+        });
+    }
+    
+    // Initialize category autocomplete functionality
+    setupCategoryAutocomplete();
+    
+    // Track Stock Toggle Functionality
+    function setupTrackStockToggle() {
+        const trackStockToggle = document.getElementById('inlineTrackStockToggle');
+        const stockFieldsRow = document.getElementById('stockFieldsRow');
+        const inStockInput = document.getElementById('inlineInStock');
+        const lowStockInput = document.getElementById('inlineLowStock');
+        
+        if (!trackStockToggle || !stockFieldsRow) return;
+        
+        // Handle toggle change
+        trackStockToggle.addEventListener('change', function() {
+            if (this.checked) {
+                // Show stock fields
+                stockFieldsRow.style.display = 'flex';
+                // Make fields required when visible
+                if (inStockInput) inStockInput.setAttribute('required', 'required');
+                if (lowStockInput) lowStockInput.setAttribute('required', 'required');
+            } else {
+                // Hide stock fields
+                stockFieldsRow.style.display = 'none';
+                // Remove required attribute and clear values
+                if (inStockInput) {
+                    inStockInput.removeAttribute('required');
+                    inStockInput.value = '';
+                }
+                if (lowStockInput) {
+                    lowStockInput.removeAttribute('required');
+                    lowStockInput.value = '';
+                }
+            }
+        });
+        
+        // Initialize state (hidden by default)
+        stockFieldsRow.style.display = 'none';
+    }
+    
+    // Initialize track stock toggle functionality
+    setupTrackStockToggle();
+    
+    // Quantity Suffix Functionality
+    function setupQuantitySuffix() {
+        // Find all inputs with quantity-suffix attribute
+        const quantityInputs = document.querySelectorAll('input[quantity-suffix]');
+        
+        quantityInputs.forEach(function(input) {
+            const suffix = input.getAttribute('quantity-suffix'); // Get the suffix (e.g., " | pcs")
+            
+            // Handle input event - add suffix when user starts typing
+            input.addEventListener('input', function() {
+                let value = this.value;
+                
+                // If empty, leave as is (shows placeholder)
+                if (value === '') {
+                    return;
+                }
+                
+                // Remove suffix temporarily to get clean value
+                if (value.endsWith(suffix)) {
+                    value = value.substring(0, value.length - suffix.length);
+                }
+                
+                // Only allow numbers and decimal points
+                value = value.replace(/[^\d.]/g, '');
+                
+                // Ensure only one decimal point
+                const parts = value.split('.');
+                if (parts.length > 2) {
+                    value = parts[0] + '.' + parts.slice(1).join('');
+                }
+                
+                // Add suffix back if there's a value
+                if (value !== '') {
+                    this.value = value + suffix;
+                    
+                    // Set cursor position before the suffix
+                    const cursorPos = value.length;
+                    this.setSelectionRange(cursorPos, cursorPos);
+                }
+            });
+            
+            // Handle keydown for special cases
+            input.addEventListener('keydown', function(e) {
+                const value = this.value;
+                const cursorPos = this.selectionStart;
+                const suffixStartPos = value.length - suffix.length;
+                
+                // Prevent cursor from moving into or deleting the suffix
+                if (cursorPos > suffixStartPos && value.endsWith(suffix)) {
+                    if (['Backspace', 'Delete', 'ArrowRight', 'End'].includes(e.key)) {
+                        e.preventDefault();
+                        // Move cursor to before suffix
+                        this.setSelectionRange(suffixStartPos, suffixStartPos);
+                    }
+                }
+                
+                // Allow only numbers, decimal point, and navigation keys
+                if (!/[\d.]/.test(e.key) && 
+                    !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key) &&
+                    !(e.ctrlKey && ['a', 'c', 'v', 'x', 'z'].includes(e.key.toLowerCase()))) {
+                    e.preventDefault();
+                }
+            });
+            
+            // Handle click to prevent cursor from going into suffix
+            input.addEventListener('click', function() {
+                const value = this.value;
+                const cursorPos = this.selectionStart;
+                const suffixStartPos = value.length - suffix.length;
+                
+                if (cursorPos > suffixStartPos && value.endsWith(suffix)) {
+                    this.setSelectionRange(suffixStartPos, suffixStartPos);
+                }
+            });
+            
+            // Handle focus to select numeric part only
+            input.addEventListener('focus', function() {
+                const value = this.value;
+                if (value.endsWith(suffix)) {
+                    const numericLength = value.length - suffix.length;
+                    setTimeout(() => {
+                        this.setSelectionRange(0, numericLength);
+                    }, 0);
+                }
+            });
+            
+            // Handle blur to clean up the value
+            input.addEventListener('blur', function() {
+                let value = this.value;
+                
+                // If empty or just suffix, clear completely
+                if (value === '' || value === suffix) {
+                    this.value = '';
+                    return;
+                }
+                
+                // If has suffix, validate and format the numeric part
+                if (value.endsWith(suffix)) {
+                    const numericPart = value.substring(0, value.length - suffix.length);
+                    const floatValue = parseFloat(numericPart);
+                    if (!isNaN(floatValue) && floatValue >= 0) {
+                        // Keep as is for whole numbers, or format decimals properly
+                        const formattedValue = floatValue % 1 === 0 ? floatValue.toString() : floatValue.toFixed(2).replace(/\.?0+$/, '');
+                        this.value = formattedValue + suffix;
+                    } else {
+                        this.value = '';
+                    }
+                }
+            });
+        });
+    }
+    
+    // Initialize quantity suffix functionality
+    setupQuantitySuffix();
+    
     const inventoryTableBody = document.getElementById('inventory-table-body');
     const addProductForm = document.getElementById('add-product-form');
     const searchInput = document.getElementById('search-inventory');
@@ -721,90 +1226,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 })();
 
-// Floating label: toggle .active on .form-group for robust behavior
-(function() {
-    document.addEventListener('DOMContentLoaded', function() {
-        function updateFormGroupActive(input, checkbox) {
-            var group = input.closest('.form-group');
-            if (!group) return;
-            if (checkbox.checked && input.value.trim()) {
-                group.classList.add('active');
-            } else {
-                group.classList.remove('active');
-            }
-        }
-        var skuInput = document.getElementById('manualSKU');
-        var skuCheckbox = document.getElementById('enableSKU');
-        var barcodeInput = document.getElementById('manualBarcode');
-        var barcodeCheckbox = document.getElementById('enableBarcode');
-        if (skuInput && skuCheckbox) {
-            skuInput.addEventListener('input', function() {
-                updateFormGroupActive(skuInput, skuCheckbox);
-            });
-            skuCheckbox.addEventListener('change', function() {
-                updateFormGroupActive(skuInput, skuCheckbox);
-                if (skuCheckbox.checked) {
-                    // Only focus if checking the box
-                    if (document.activeElement !== skuInput) {
-                        skuInput.focus();
-                    }
-                } else {
-                    skuInput.value = '';
-                    updateFormGroupActive(skuInput, skuCheckbox);
-                    // Always blur input on uncheck, even if event order causes accidental focus
-                    setTimeout(function() {
-                        if (document.activeElement === skuInput) {
-                            skuInput.blur();
-                        }
-                    }, 10);
-                }
-            });
-            // On page load
-            updateFormGroupActive(skuInput, skuCheckbox);
-        }
-    });
-})();
 
-(function() {
-    document.addEventListener('DOMContentLoaded', function() {
-        function updateFormGroupActive(input, checkbox) {
-            var group = input.closest('.form-group');
-            if (!group) return;
-            if (checkbox.checked && input.value.trim()) {
-                group.classList.add('active');
-            } else {
-                group.classList.remove('active');
-            }
-        }
-        var skuInput = document.getElementById('manualSKU');
-        var skuCheckbox = document.getElementById('enableSKU');
-        var barcodeInput = document.getElementById('manualBarcode');
-        var barcodeCheckbox = document.getElementById('enableBarcode');
-        if (barcodeInput && barcodeCheckbox) {
-            barcodeInput.addEventListener('input', function() {
-                updateFormGroupActive(barcodeInput, barcodeCheckbox);
-            });
-            barcodeCheckbox.addEventListener('change', function() {
-                updateFormGroupActive(barcodeInput, barcodeCheckbox);
-                if (barcodeCheckbox.checked) {
-                    if (document.activeElement !== barcodeInput) {
-                        barcodeInput.focus();
-                    }
-                } else {
-                    barcodeInput.value = '';
-                    updateFormGroupActive(barcodeInput, barcodeCheckbox);
-                    setTimeout(function() {
-                        if (document.activeElement === barcodeInput) {
-                            barcodeInput.blur();
-                        }
-                    }, 10);
-                }
-            });
-            // On page load
-            updateFormGroupActive(barcodeInput, barcodeCheckbox);
-        }
-    });
-})();
 
 // --- TAB PANEL LOGIC FOR MODAL ---
 // Tab names: 'scan', 'manual', 'addItems'

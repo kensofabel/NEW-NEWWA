@@ -70,6 +70,95 @@
     margin-bottom: 12px;
 }
 
+/* Category Autocomplete Dropdown */
+.category-autocomplete {
+    position: relative;
+    z-index: 1001;
+}
+
+.category-dropdown {
+    position: fixed;
+    background: #2a2a2a;
+    border: 2px solid #444; 
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10000;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    min-width: 190px;
+}
+
+/* Custom scrollbar for category dropdown */
+.category-dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+.category-dropdown::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.category-dropdown::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.category-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+.category-dropdown.show {
+    display: block;
+}
+
+.category-option {
+    padding: 12px 16px;
+    color: #fff;
+    cursor: pointer;
+    border-bottom: 1px solid #444;
+    transition: background-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.category-option:last-child {
+    border-bottom: none;
+}
+
+.category-option:hover,
+.category-option.highlighted {
+    background: #3a3a3a;
+}
+
+.category-option.new-category {
+    background: #3a3a3a;
+    color: #fff;
+    padding: 5px 16px 10px 16px;
+}
+
+.category-option.new-category:hover {
+    background: #3a3a3a;
+}
+
+.category-helper {
+    font-size: 10px;
+    color: #9ca3af;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+.category-new-indicator {
+    background: #ff9800;
+    color: white;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: bold;
+    align-self: flex-start;
+}
+
 /* Dropdown Styling */
 #categoryFilter,
 #stockAlert {
@@ -253,91 +342,68 @@
 }
 
 /* Add Items modal: remove global black overlay and fade */
-/* Custom Toggle Switch with Text Inside */
+/* Custom Toggle Switch - Larger size to match input fields */
 .switch {
     position: relative;
     display: inline-block;
-    width: 50px;
-    height: 28px;
+    width: 80px !important;
+    height: 40px !important;
 }
-.switch input[type="checkbox"] {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-.slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #888;
-        transition: .4s;
-        border-radius: 28px;
-        pointer-events: auto;
-}
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 20px;
-    width: 20px;
-    left: 4px;
-    bottom: 4px;
-    background-color: #fff;
-    transition: .4s;
-    border-radius: 50%;
-}
-.switch input:checked + .slider {
-    background-color: #ff9800;
-}
-.switch input:checked + .slider:before {
-    transform: translateX(22px);
-}
-/* Custom Toggle Switch for Track Stock */
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 22px;
-}
+
 .switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
+
 .slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
+    top: 5px;
     left: 0;
     right: 0;
-    bottom: 0;
-    background-color: #888;
+    bottom: -5px;
+    background-color: #333;
     transition: .4s;
-    border-radius: 22px;
+    border-radius: 10px;
+    border: 1.5px solid #555;
+    pointer-events: auto;
 }
+
 .slider:before {
     position: absolute;
     content: "";
-    height: 16px;
-    width: 16px;
+    height: 32px !important;
+    width: 32px !important;
     left: 3px;
     bottom: 3px;
-    background-color: #fff;
+    background-color: #dbdbdb;
     transition: .4s;
-    border-radius: 50%;
+    border-radius: 25%;
 }
+
 .switch input:checked + .slider {
     background-color: #ff9800;
+    border-color: #ff9800;
 }
+
 .switch input:checked + .slider:before {
-    transform: translateX(18px);
+    transform: translateX(40px);
+    background-color: #171717;
+}
+
+/* Hover and focus effects */
+.slider:hover {
+    border-color: #777;
+}
+
+.switch input:focus + .slider {
+    border-color: #ff9800;
+    outline: none;
 }
 /* Remove .form-group animation and input transition for scanner modal and add items modal */
 .scanner-modal .form-group,
-#addItemsModal .form-group,
-.add-items-panel .form-group {
+#addItemsModal .form-group {
     animation: none !important;
 }
 
@@ -457,40 +523,6 @@
     }
 }
 
-/* Inline Add Items panel inside scanner modal */
-.add-items-panel {
-    position: absolute;
-    top: 0 !important;
-    margin-top: 0 !important;
-    padding-top: 0 !important;
-    display: flex;
-    flex-direction: column;
-    background: #171717;
-    border-radius: 18px;
-    transform: translateX(100%);
-    transition: transform 0.4s ease;
-    z-index: 20;
-    box-sizing: border-box;
-    width: 100% !important;
-    height: 100% !important;
-    max-width: 95vw !important;
-    max-height: 90vh !important;
-    min-width: 320px !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-}
-.add-items-panel.show {
-    transform: translateX(0);
-}
-.add-items-panel .modal-header {
-    padding-top: 18px;
-}
-.add-items-panel .modal-body {
-    overflow-y: auto;
-    padding: 16px 0 0 0;
-}
-
 /* Inline close button inside panel */
 .tab-panel .inline-back {
     position: absolute;
@@ -538,7 +570,7 @@ body #addItemsModal .modal-content.fb-modal-out {
 /* Scanner Modal Styles - Fixed width */
 .scanner-modal {
     position: relative !important;
-    min-width: 350px;
+    min-width: 450px;
     max-width: 98vw;
     width: auto;
     height: auto;
@@ -553,6 +585,31 @@ body #addItemsModal .modal-content.fb-modal-out {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+}
+
+/* Override scanner modal overflow when category dropdown is shown */
+.scanner-modal:has(.category-dropdown.show) {
+    overflow: visible !important;
+}
+
+/* Fallback for browsers that don't support :has() */
+.scanner-modal.category-dropdown-active {
+    overflow: visible !important;
+}
+
+/* Override overflow for Add Items modal body to show dropdown */
+#addItemsTabPanel .modal-body {
+    overflow: visible !important;
+}
+
+/* Ensure form rows don't clip dropdown */
+#addItemsTabPanel .form-row {
+    overflow: visible !important;
+}
+
+/* Make sure the product form allows dropdown overflow */
+#inlineAddItemsForm {
+    overflow: visible !important;
 }
 
 /* Responsive Scanner Modal for smaller devices */
@@ -733,77 +790,91 @@ body #addItemsModal .modal-content.fb-modal-out {
 
 /* Manual Mode */
 .manual-form {
-    width: 350px;
+    width: 390px;
     padding: 0 20px;
     background: #171717;   /* Optional: match modal background */
     border-radius: 12px;   /* Optional: rounded corners for form */
 }
 
-.manual-form .form-description {
-    text-align: center;
-}
-
-.manual-form .form-description p {
-    color: #dbdbdb;
-    font-size: 14px;
-    line-height: 1.5;
-    margin: 0;
-    opacity: 0.9;
-}
-
 .manual-form .form-group {
+    margin-top: 30px !important;
+    position: static !important;
+    animation: none !important;
+    display: flex;
+    flex-direction: column;
     left: 30px;
-    position: relative;
     user-select: none;
     text-align: left;
-    margin-top: 20px !important;
+}
+
+.manual-form .form-group label {
+    margin-left: 35px !important;
+    position: static !important;
+    display: block !important;
+    color: #dbdbdb !important;
+    font-size: 1.1rem !important;
+    font-weight: 450 !important;
+    background: transparent !important;
+    pointer-events: auto !important;
+    transition: none !important;
+    z-index: auto !important;
+}
+
+/* Specific styling for checkbox-group layout */
+.manual-form .form-group.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.manual-form .checkbox-group label {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    flex: 0 0 auto;
+}
+
+/* Container for checkbox and input on same line */
+.manual-form .input-row {
+    margin-top: -5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.manual-form .input-row .field-checkbox {
+    margin: 0 !important;
+    flex-shrink: 0;
+}
+
+.manual-form .input-row input[type="text"] {
+    flex: 1;
+    margin-left: 0 !important;
+    width: auto !important;
 }
 
 .manual-form input[type="text"],
 .manual-form input[type="number"] {
-    margin-left: 5px !important;
-    text-indent: 0 !important;
-    width: calc(100% - 40px) !important;
+    width: 100% !important;
+    padding: 8px !important;
+    border: 1.5px solid #333 !important;
+    border-radius: 7px !important;
+    background: #232323 !important;
     color: #dbdbdb !important;
-    border: none !important;
-    border-bottom: .5px solid #555 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    height: 35px !important;
-    padding: 8px 0 8px 0 !important;
-    text-align: left !important;
-    font-size: 1rem !important;
-    transition: border-color 0.2s;
+    font-size: 1.1rem !important;
+    margin-bottom: 0 !important;
+    box-sizing: border-box !important;
+    transition: border-color 0.2s, box-shadow 0.2s !important;
     outline: none !important;
+    text-indent: 0 !important;
+    font-weight: 400 !important;
+    margin-left: 5px !important;
+    text-align: left !important;
 }
 
 .manual-form input[type="text"]:focus,
 .manual-form input[type="number"]:focus {
-    border-bottom: .5px solid #ff9800 !important;
-    background: transparent !important;
-    color: #dbdbdb !important;
-}
-.manual-form .form-group label {
-    position: absolute;
-    left: 5px;
-    top: 18px;
-    color: #888;
-    font-size: 1rem;
-    pointer-events: none;
-    background: transparent;
-    transition: all 0.2s cubic-bezier(.4,0,.2,1);
-    z-index: 2;
-}
-/* Float label on focus AND when input has content */
-.manual-form .form-group input[type="text"]:focus + label,
-.manual-form .form-group input[type="text"]:not(:placeholder-shown) + label {
-    top: -10px;
-    left: 0;
-    font-size: 0.85rem;
-    color: #ff9800 !important;
-    padding: 0 4px; 
-    z-index: 3;
+    border: 1.5px solid #555 !important;
+    outline: none !important;
 }
 
 .manual-form .field-checkbox:checked,
@@ -839,9 +910,7 @@ body #addItemsModal .modal-content.fb-modal-out {
 /* Checkbox Styles for Manual Form */
 .manual-form .field-checkbox,
 .form-row .field-checkbox {
-    position: absolute;
-    left: -30px;
-    top: 8px;
+    position: relative;
     width: 22px !important;
     height: 20px !important;
     padding: 0 !important;
@@ -852,8 +921,10 @@ body #addItemsModal .modal-content.fb-modal-out {
     background: #171717 !important;
     cursor: pointer !important;
     z-index: 5 !important;
-    margin-right: 0 !important;
+    margin-right: 10px !important;
+    margin-bottom: 10px !important;
     outline: none !important;
+    flex-shrink: 0;
 }
 
 #nextBtn {
@@ -868,7 +939,7 @@ body #addItemsModal .modal-content.fb-modal-out {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    margin-top: 10px;
+    margin-top: 20px;
 }
 
 #nextBtn:hover {
@@ -924,7 +995,8 @@ body #addItemsModal .modal-content.fb-modal-out {
 /* Forms */
 .product-form {
     margin: -10px !important;
-    width: 400px;
+    margin-bottom: -20px !important;
+    width: 460px;
     background: #171717;
     border-radius: 15px;
     box-sizing: border-box;
@@ -1037,7 +1109,7 @@ body #addItemsModal .modal-content.fb-modal-out {
 }
 .product-form .form-group input {
     width: 100% !important;
-    padding: 5px !important;
+    padding: 8px !important;
     margin-top: -15px !important;
     border: 1.5px solid #333 !important;
     border-radius: 7px !important;

@@ -6,7 +6,6 @@ if (!isset($_SESSION['user_id'])) {
 }
 ?>
 
-<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -134,18 +133,19 @@ if (!isset($_SESSION['user_id'])) {
             <div id="manualTabPanel" class="tab-panel" style="display:none;">
                 <div class="modal-body">
                     <div class="manual-form">
-                        <div class="form-description">
-                            <p>Enter the product's barcode or SKU to identify the item you want to add to inventory.</p>
+                        <div class="form-group checkbox-group">
+                            <label>SKU</label>
+                            <div class="input-row">
+                                <input type="checkbox" id="enableSKU" class="field-checkbox">
+                                <input type="text" id="manualSKU" required class="input-box" placeholder="Unique item identifier">
+                            </div>
                         </div>
                         <div class="form-group checkbox-group">
-                            <input type="checkbox" id="enableSKU" class="field-checkbox">
-                            <input type="text" id="manualSKU" required placeholder=" ">
-                            <label for="manualSKU">SKU</label>
-                        </div>
-                        <div class="form-group checkbox-group">
-                            <input type="checkbox" id="enableBarcode" class="field-checkbox">
-                            <input type="text" id="manualBarcode" required placeholder=" ">
-                            <label for="manualBarcode">Barcode</label>
+                            <label>Barcode</label>
+                            <div class="input-row">
+                                <input type="checkbox" id="enableBarcode" class="field-checkbox">
+                                <input type="text" id="manualBarcode" required class="input-box" placeholder="Barcode number">
+                            </div>
                         </div>
                         <button class="btn btn-primary" id="nextBtn">Next</button>
                     </div>
@@ -169,13 +169,14 @@ if (!isset($_SESSION['user_id'])) {
                                 <label for="inlineItemName">Name</label>
                                 <input type="text" id="inlineItemName" name="itemName" required class="input-box">
                             </div>
-                            <div class="form-group" style="flex:2;">
+                            <div class="form-group category-autocomplete" style="flex:2; position: relative;">
                                 <label for="inlineItemCategory">Category</label>
-                                <input type="text" id="inlineItemCategory" name="itemCategory" required class="input-box" autocomplete="off">
+                                <input type="text" id="inlineItemCategory" name="itemCategory" required class="input-box" autocomplete="off" placeholder="Select or create">
+                                <div class="category-dropdown" id="categoryDropdown"></div>
                             </div>
                         </div>
                         <!-- Row 2: Price | Cost | Track Stock Toggle -->
-                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between;">
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between; margin-top: 10px; margin-bottom: -10px;">
                             <div class="form-group" style="flex:1.45;">
                                 <label for="inlineItemPrice">Price</label>
                                 <input type="text" id="inlineItemPrice" name="itemPrice" required class="input-box" currency-localization="₱" placeholder="Optional">
@@ -192,12 +193,22 @@ if (!isset($_SESSION['user_id'])) {
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between; margin-top: -10px;">
+                        <div class="form-row stock-fields" id="stockFieldsRow" style="display: none; gap: 15px; justify-content: space-between;">
+                            <div class="form-group" style="flex:2;">
+                                <label for="inlineInStock">In Stock</label>
+                                <input type="text" id="inlineInStock" name="inStock" class="input-box" quantity-suffix="                      | pcs" placeholder="Stock quantity">
+                            </div>
+                            <div class="form-group" style="flex:2; margin-right: 95px;">
+                                <label for="inlineLowStock">Low stock</label>
+                                <input type="text" id="inlineLowStock" name="lowStock" class="input-box" quantity-suffix="                    | pcs" placeholder="Alert stock">
+                            </div>
+                        </div>
+                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between; margin-bottom: -20px">
                             <div class="form-group" style="flex:2;">
                                 <label for="inlineItemSKU">SKU</label>
                                 <input type="text" id="inlineItemSKU" name="itemSKU" required class="input-box" placeholder="Unique item identifier">
                             </div>
-                            <div class="form-group" style="flex:2.5;">
+                            <div class="form-group" style="flex:2;">
                                 <label for="inlineItemBarcode">Barcode</label>
                                 <input type="text" id="inlineItemBarcode" name="itemBarcode" required class="input-box">
                             </div>
@@ -336,26 +347,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Disable Next button unless checked input has data
-(function() {
-    document.addEventListener('DOMContentLoaded', function() {
-        var skuInput = document.getElementById('manualSKU');
-        var skuCheckbox = document.getElementById('enableSKU');
-        var barcodeInput = document.getElementById('manualBarcode');
-        var barcodeCheckbox = document.getElementById('enableBarcode');
-        var nextBtn = document.getElementById('nextBtn');
-        function updateNextBtn() {
-            var skuValid = skuCheckbox && skuCheckbox.checked && skuInput && skuInput.value.trim();
-            var barcodeValid = barcodeCheckbox && barcodeCheckbox.checked && barcodeInput && barcodeInput.value.trim();
-            nextBtn.disabled = !(skuValid || barcodeValid);
-        }
-        if (skuInput) skuInput.addEventListener('input', updateNextBtn);
-        if (barcodeInput) barcodeInput.addEventListener('input', updateNextBtn);
-        if (skuCheckbox) skuCheckbox.addEventListener('change', updateNextBtn);
-        if (barcodeCheckbox) barcodeCheckbox.addEventListener('change', updateNextBtn);
-        updateNextBtn(); // Initial state
-    });
-})();
+// Input validation for Next button is now handled in inventory.js
 
 </script>
 <script src="inventory.js"></script>
