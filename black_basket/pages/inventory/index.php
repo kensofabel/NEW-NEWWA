@@ -16,6 +16,43 @@ if (!isset($_SESSION['user_id'])) {
     <link rel="stylesheet" href="inventory.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="../../assets/images/icon.webp">
+    <style>
+        /* Slide-up effect for POS options above form, never covering footer */
+        #posOptionsContainer {
+          position: absolute;
+          left: 0;
+          right: 0;
+          /* Align bottom to top of footer */
+          bottom: 100%;
+          background: #171717;
+          border-radius: 20px 20px 0 0;
+          box-shadow: 0 -4px 0 #414141;
+          z-index: 20; /* Lower than footer */
+          max-height: 0;
+          overflow: hidden;
+          transition: max-height 0.4s cubic-bezier(.4,0,.2,1), padding 0.4s cubic-bezier(.4,0,.2,1);
+          padding: 0 20px;
+          pointer-events: none;
+        }
+        #posOptionsContainer.slide-up {
+          max-height: 420px;
+          padding: 20px 20px 0 20px;
+          overflow: none;
+          pointer-events: auto;
+          z-index: 20; /* Lower than footer */
+        }
+        .modal-footer {
+          position: sticky !important;
+          bottom: 0 !important;
+          z-index: 30 !important; /* Always above POS options */
+          background: #171717 !important;
+        }
+
+        /* Ensure modal body is relative for absolute positioning */
+        .inventory-modal-body, .modal-content, .modal-dialog {
+          position: relative;
+        }
+    </style>
 </head>
 <body>
     <?php include '../../partials/navigation.php'; ?>
@@ -165,9 +202,10 @@ if (!isset($_SESSION['user_id'])) {
                     <form id="inlineAddItemsForm" class="product-form">
                         <!-- Row 1: Name | Category -->
                         <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between;">
-                            <div class="form-group" style="flex:3;">
+                            <div class="form-group name-autocomplete" style="flex:3; position: relative;">
                                 <label for="inlineItemName">Name</label>
-                                <input type="text" id="inlineItemName" name="itemName" required class="input-box">
+                                <input type="text" id="inlineItemName" name="itemName" required class="input-box" autocomplete="off">
+                                <div class="name-dropdown" id="nameDropdown"></div>
                             </div>
                             <div class="form-group category-autocomplete" style="flex:2; position: relative;">
                                 <label for="inlineItemCategory">Category</label>
@@ -176,7 +214,7 @@ if (!isset($_SESSION['user_id'])) {
                             </div>
                         </div>
                         <!-- Row 2: Price | Cost | Track Stock Toggle -->
-                        <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between; margin-top: 10px; margin-bottom: -10px;">
+                        <div class="form-row" id="priceRow" style="display: flex; gap: 15px; justify-content: space-between; margin-top: 10px; margin-bottom: -10px;">
                             <div class="form-group" style="flex:1.45;">
                                 <label for="inlineItemPrice">Price</label>
                                 <input type="text" id="inlineItemPrice" name="itemPrice" required class="input-box" currency-localization="₱" placeholder="Optional">
@@ -186,21 +224,85 @@ if (!isset($_SESSION['user_id'])) {
                                 <input type="text" id="inlineItemCost" name="itemCost" required class="input-box" currency-localization="₱" value="₱0.00">
                             </div>
                             <div class="form-group" style="flex:2;">
-                                <label for="inline  TrackStockToggle">Track Stock</label>
+                                <label for="inlineTrackStockToggle">Track Stock</label>
                                 <label class="switch" style="left: 10px;">
                                     <input type="checkbox" id="inlineTrackStockToggle" name="trackStock">
                                     <span class="slider"></span>
                                 </label>
                             </div>
                         </div>
-                        <div class="form-row stock-fields" id="stockFieldsRow" style="display: none; gap: 15px; justify-content: space-between;">
-                            <div class="form-group" style="flex:2;">
-                                <label for="inlineInStock">In Stock</label>
-                                <input type="text" id="inlineInStock" name="inStock" class="input-box" quantity-suffix="                      | pcs" placeholder="Stock quantity">
+
+                        <!-- Variants Section (Initially Hidden) -->
+                        <div class="variants-section" id="variantsSection" style="display: none; margin-top: 10px; margin-bottom: -10px;">
+                            <div class="modal-divider" style="margin-top: -10px !important; margin-bottom: 20px !important;"></div>
+                            <!-- Variants Header -->
+                            <div class="variants-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <button type="button" class="variants-add-btn" style="background: #ff9800; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">+ Add Variant</button>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <label style="color: #dbdbdb; font-size: 12px; margin: 0;">Track Stock</label>
+                                        <label class="switch" style="width: 60px !important; height: 30px !important;">
+                                            <input type="checkbox" id="variantsTrackStockToggle" name="variantsTrackStock">
+                                            <span class="slider" style="top: -1px; bottom: 1px;"></span>
+                                        </label>
+                                    </div>
+                                    <button type="button" class="variants-close-btn" id="closeVariantsBtn" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all 0.2s ease;">
+                                        ✕ Close
+                                    </button>
+                                </div>
                             </div>
-                            <div class="form-group" style="flex:2; margin-right: 95px;">
+                            
+                            <!-- Variants Table -->
+                            <div class="variants-table-container" style="border: 2px solid #444; border-radius: 8px; background: #1a1a1a;">
+                                <table class="variants-table" style="width: 100%; border-collapse: collapse;">
+                                    <thead id="variantsTableHead">
+                                        <tr style="background: #333;">
+                                            <th style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: center; font-size: 11px;">Available</th>
+                                            <th style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: left; font-size: 11px;">Variant</th>
+                                            <th style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: left; font-size: 11px;">Price</th>
+                                            <th style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: left; font-size: 11px;">Cost</th>
+                                            <th class="stock-column" style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: left; font-size: 11px; display: none;">In Stock</th>
+                                            <th class="stock-column" style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: left; font-size: 11px; display: none;">Low Stock</th>
+                                            <th style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: left; font-size: 11px;">SKU</th>
+                                            <th style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: left; font-size: 11px;">Barcode</th>
+                                            <th style="padding: 12px 8px; color: #dbdbdb; border-bottom: 1px solid #555; text-align: center; font-size: 11px; width: 50px;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="variantsTableBody">
+                                        <!-- Variant rows will be added here dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="modal-divider" style="margin-bottom: 30px !important; margin-top: 20px !important;"></div>
+                        </div>
+                        <div class="form-row stock-fields" id="stockFieldsRow" style="display: none; gap: 15px; justify-content: space-between;">
+                            <div class="form-group quantity-input-wrapper" style="flex:2;">
+                                <label for="inlineInStock">In Stock</label>
+                                <div class="input-with-unit-selector">
+                                    <input type="text" id="inlineInStock" name="inStock" class="input-box" placeholder="Stock quantity">
+                                    <div class="unit-selector">
+                                        <span class="unit-prefix">|</span>
+                                        <span class="unit-value">- -</span>
+                                        <div class="unit-arrows">
+                                            <button type="button" class="unit-arrow unit-up">▲</button>
+                                            <button type="button" class="unit-arrow unit-down">▼</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group quantity-input-wrapper" style="flex:2; margin-right: 95px;">
                                 <label for="inlineLowStock">Low stock</label>
-                                <input type="text" id="inlineLowStock" name="lowStock" class="input-box" quantity-suffix="                    | pcs" placeholder="Alert stock">
+                                <div class="input-with-unit-selector">
+                                    <input type="text" id="inlineLowStock" name="lowStock" class="input-box" placeholder="Alert stock">
+                                    <div class="unit-selector">
+                                        <span class="unit-prefix">|</span>
+                                        <span class="unit-value">- -</span>
+                                        <div class="unit-arrows">
+                                            <button type="button" class="unit-arrow unit-up">▲</button>
+                                            <button type="button" class="unit-arrow unit-down">▼</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between; margin-bottom: -20px">
@@ -217,11 +319,78 @@ if (!isset($_SESSION['user_id'])) {
                 </div>
                 <div class="modal-footer" style="position: sticky; bottom: 0; z-index: 10; padding: 10px 20px;">
                     <div style="display: flex; flex-direction: column; width: 100%; gap: 8px;">
+                        <div class="modal-divider" style="z-index: 30;"></div>
                         <!-- First row: Checkbox -->
                         <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%;">
-                            <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                            <div class="form-group" style="display: flex; align-items: center; gap: 30px;">
                                 <input type="checkbox" id="availablePOS" name="availablePOS" class="field-checkbox">
                                 <label for="availablePOS">This item is available in POS</label>
+                            </div>
+                        </div>
+                        
+                        <!-- POS Options Tabs (hidden by default) -->
+                        <div id="posOptionsContainer" style="display: none; width: 100%; margin-top: 10px;">
+                            
+                            
+                            <!-- Tab Content -->
+                            <div class="pos-tab-content">
+                                <!-- Color & Shape Tab -->
+                                <div id="colorShapeTab" class="pos-tab-panel active" style="display: block;">
+                                    <div style="display: flex; gap: 15px;">
+                                        <!-- Color Selection -->
+                                        <div style="flex: 1; text-align: center;">
+                                            <label style="display: block; color: #dbdbdb; font-size: 12px; margin-bottom: 10px;">Color</label>
+                                            <div class="color-options" style="display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;">
+                                                <div class="color-option" data-color="red" style="width: 24px; height: 24px; background: #f44336; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="color-option" data-color="orange" style="width: 24px; height: 24px; background: #ff9800; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="color-option" data-color="yellow" style="width: 24px; height: 24px; background: #ffeb3b; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="color-option" data-color="green" style="width: 24px; height: 24px; background: #4caf50; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="color-option" data-color="blue" style="width: 24px; height: 24px; background: #2196f3; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="color-option" data-color="purple" style="width: 24px; height: 24px; background: #9c27b0; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="color-option" data-color="brown" style="width: 24px; height: 24px; background: #795548; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="color-option" data-color="gray" style="width: 24px; height: 24px; background: #607d8b; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Shape Selection -->
+                                        <div style="flex: 1; text-align: center; margin-bottom: 20px;">
+                                            <label style="display: block; color: #dbdbdb; font-size: 12px; margin-bottom: 10px;">Shape</label>
+                                            <div class="shape-options" style="display: flex; flex-wrap: wrap; gap: 5px; justify-content: center;">
+                                                <div class="shape-option" data-shape="circle" style="width: 24px; height: 24px; background: #555; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="shape-option" data-shape="square" style="width: 24px; height: 24px; background: #555; border-radius: 2px; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease;"></div>
+                                                <div class="shape-option" data-shape="triangle" style="width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid #555; cursor: pointer; border-radius: 0; transition: all 0.2s ease; position: relative;"></div>
+                                                <div class="shape-option" data-shape="diamond" style="width: 16px; height: 16px; background: #555; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease; transform: rotate(45deg); margin: 4px;"></div>
+                                                <div class="shape-option" data-shape="star" style="width: 20px; height: 20px; background: #555; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);"></div>
+                                                <div class="shape-option" data-shape="hexagon" style="width: 20px; height: 20px; background: #555; cursor: pointer; border: 2px solid transparent; transition: all 0.2s ease; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Image Tab -->
+                                <div id="imageTab" class="pos-tab-panel" style="display: none;">
+                                    <div style="text-align: center;">
+                                        <label style="display: block; color: #dbdbdb; font-size: 12px; margin-bottom: 10px;">Product Image</label>
+                                        <div class="image-upload-area" style="border: 2px dashed #555; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.2s ease; background: #1a1a1a; margin-bottom: 20px;">
+                                            <input type="file" id="posProductImage" accept="image/*" style="display: none;">
+                                            <div class="upload-placeholder">
+                                                <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #777; margin-bottom: 8px;"></i>
+                                                <p style="color: #777; font-size: 12px; margin: 0;">Click to upload product image</p>
+                                                <p style="color: #555; font-size: 10px; margin: 4px 0 0 0;">JPG, PNG, GIF up to 10MB</p>
+                                            </div>
+                                            <img id="imagePreview" style="display: none; max-width: 100%; max-height: 120px; border-radius: 4px; margin-top: 10px;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Tab Navigation -->
+                            <div class="pos-tabs" style="display: flex; gap: 2px; margin-bottom: 10px;">
+                                <button type="button" class="pos-tab-btn active" data-tab="colorShape" style="flex: 1; padding: 8px 12px; background: #ff9800; color: #171717; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+                                    Color & Shape
+                                </button>
+                                <button type="button" class="pos-tab-btn" data-tab="image" style="flex: 1; padding: 8px 12px; background: #333; color: #dbdbdb; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+                                    Image
+                                </button>
                             </div>
                         </div>
                         <!-- Second row: Cancel (left) and Add (right) -->
@@ -349,6 +518,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Input validation for Next button is now handled in inventory.js
 
+document.addEventListener('DOMContentLoaded', function() {
+  var posCheckbox = document.getElementById('availablePOS');
+  var posOptions = document.getElementById('posOptionsContainer');
+  if (posCheckbox && posOptions) {
+    posCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        posOptions.style.display = 'block';
+        setTimeout(function() {
+          posOptions.classList.add('slide-up');
+        }, 10);
+      } else {
+        posOptions.classList.remove('slide-up');
+        setTimeout(function() {
+          posOptions.style.display = 'none';
+        }, 400);
+      }
+    });
+  }
+});
 </script>
 <script src="inventory.js"></script>
 </body>

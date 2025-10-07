@@ -73,7 +73,7 @@
 /* Category Autocomplete Dropdown */
 .category-autocomplete {
     position: relative;
-    z-index: 1001;
+    z-index: 10;
 }
 
 .category-dropdown {
@@ -154,9 +154,179 @@
     color: white;
     padding: 1px 4px;
     border-radius: 3px;
-    font-size: 9px;
+    font-size: 8px;
     font-weight: bold;
     align-self: flex-start;
+}
+
+/* Name Autocomplete Dropdown */
+.name-autocomplete {
+    position: relative;
+    z-index: 20;
+}
+
+.name-dropdown {
+    position: fixed;
+    background: #2a2a2a;
+    border: 2px solid #444; 
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10000;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    min-width: 190px;
+}
+
+.name-dropdown.show {
+    display: block;
+}
+
+.name-option {
+    padding: 10px 16px;
+    color: #fff;
+    cursor: pointer;
+    border-bottom: 1px solid #444;
+    transition: background-color 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.name-option:last-child {
+    border-bottom: none;
+}
+
+.name-option:hover,
+.name-option.highlighted {
+    background: #2a2a2a;
+}
+
+.name-option.add-variants {
+    background: #2a2a2a;
+    color: #fff;
+    padding: 8px 16px;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-direction: row;
+}
+
+.name-option.add-variants:hover {
+    background: #2a2a2a;
+}
+
+.name-variants-indicator {
+    margin-top: 1px;
+    background: #ff9800;
+    color: white;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: bold;
+    align-self: flex-start;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.name-variants-indicator:hover {
+    background: #ff6600;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.name-variants-indicator:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.name-helper {
+    font-size: 10.5px;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+/* Quantity Input with Unit Selector */
+.input-with-unit-selector {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-with-unit-selector input {
+    padding-right: 80px !important; /* Reserve space for unit selector */
+    flex: 1;
+}
+
+.unit-selector {
+    background: #232323;
+    position: absolute;
+    right: 8px;
+    top: 8%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.unit-selector.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.unit-prefix {
+    color: #dbdbdb;
+    font-size: 1.1rem;
+    font-weight: normal;
+    position: absolute;
+    left: 0;
+    margin-left: 5px;
+}
+
+.unit-value {
+    color: #dbdbdb;
+    font-size: 1.1rem;
+    font-weight: normal;
+    min-width: 30px;
+    width: 30px;
+    text-align: center;
+    margin-left: 12px;
+}
+
+.unit-arrows {
+    margin-top: 5px; /* Add this to move arrows down */ 
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.unit-arrow {
+    background: transparent;
+    border: transparent;
+    color: #dbdbdb;
+    font-size: 8px;
+    width: 14px;
+    height: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+}
+
+.unit-arrow:hover {
+    background: #444;
+    border-color: #666;
+}
+
+.unit-arrow:active {
+    background: #555;
 }
 
 /* Dropdown Styling */
@@ -996,7 +1166,7 @@ body #addItemsModal .modal-content.fb-modal-out {
 .product-form {
     margin: -10px !important;
     margin-bottom: -20px !important;
-    width: 460px;
+    width: 500px;
     background: #171717;
     border-radius: 15px;
     box-sizing: border-box;
@@ -1067,7 +1237,6 @@ body #addItemsModal .modal-content.fb-modal-out {
     outline: none !important;
 }
 .modal-footer {
-    box-shadow: 0 -2px 0 #212121;
     position: sticky;
     bottom: 0;
     background: #171717;
@@ -1084,7 +1253,7 @@ body #addItemsModal .modal-content.fb-modal-out {
     background: transparent;
     pointer-events: auto;
     transition: none;
-    z-index: auto;
+    z-index: 5;
 }
 /* Override global .form-group styles for product-form */
 .product-form .form-group {
@@ -1105,7 +1274,7 @@ body #addItemsModal .modal-content.fb-modal-out {
     background: transparent !important;
     pointer-events: auto !important;
     transition: none !important;
-    z-index: auto !important;
+    z-index: 5 !important;
 }
 .product-form .form-group input {
     width: 100% !important;
@@ -1128,6 +1297,16 @@ body #addItemsModal .modal-content.fb-modal-out {
     outline: none !important;
 }
 
+.stock-fields input:focus {
+    padding-right: 60px !important; /* Make space for unit selector */
+}
+
+.stock-fields input:focus::placeholder {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
 .cancel-secondary {
     background: #171717;
     color: #ff9800;
@@ -1146,4 +1325,169 @@ body #addItemsModal .modal-content.fb-modal-out {
 /* Hide tab buttons when Add Items modal is open */
 #addItemsModal .modal-tabs {
     display: none !important;
+}
+
+/* Variants Section Styling */
+.variants-add-btn:hover {
+    background: #ff6600 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.variants-add-btn:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.variants-close-btn:hover {
+    background: #c82333 !important;
+    transform: translateY(-1px);
+}
+
+.variants-table input:focus {
+    border-color: #ff9800 !important;
+    outline: none;
+}
+
+.variants-table-container {
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.variants-table {
+    width: 420px;
+    transition: width 0.3s ease;
+}
+
+.variants-table.with-stock {
+    width: 700px !important; /* 420px + 240px for stock columns */
+}
+
+.variants-table-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.variants-table-container::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.variants-table-container::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.variants-table-container::-webkit-scrollbar-thumb:hover {
+    background: #777;
+}
+
+/* Remove this rule - it conflicts with unit selector spacing */
+
+/* Unit selector styling inside variants table - smaller size */
+.variants-table .unit-selector {
+    background: transparent;
+    right: 2px;
+    top: 45%;
+    transform: translateY(-50%) scale(0.8);
+}
+
+.variants-table .unit-prefix {
+    font-size: 0.9rem;
+    margin-left: 4px;
+}
+
+.variants-table .unit-value {
+    font-size: 0.9rem;
+    min-width: 25px;
+    width: 25px;
+    margin-left: 10px;
+}
+
+.variants-table .unit-arrows {
+    margin-top: 3px;
+    gap: 0px;
+}
+
+.variants-table .unit-arrow {
+    font-size: 7px;
+    width: 12px;
+    height: 8px;
+}
+
+/* Ensure variant stock inputs reserve space for unit selector */
+.variants-table .input-with-unit-selector input {
+    padding-right: 45px !important; /* Smaller space for scaled unit selector */
+}
+
+
+/* Variants Track Stock Toggle - Smaller size */
+.variants-section .switch {
+    width: 60px !important;
+    height: 30px !important;
+}
+
+.variants-section .slider:before {
+    height: 24px !important;
+    width: 24px !important;
+    left: 2px !important;
+    bottom: 2px !important;
+}
+
+.variants-section .switch input:checked + .slider:before {
+    transform: translateX(30px) !important;
+}
+
+/* Fix divider inside variants section */
+.variants-section .modal-divider {
+    width: 100% !important;
+    margin: 0 !important;
+    background: #212121;
+    height: 1.5px;
+    opacity: 0.7;
+}
+
+/* Variants Table Checkbox Styling - Bigger and Orange */
+.variants-table .variant-available {
+    width: 20px !important;
+    height: 20px !important;
+    border: 2px solid #ff9800 !important;
+    background: #171717 !important;
+    border-radius: 4px !important;
+    position: relative;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    cursor: pointer !important;
+    margin: 0 auto !important;
+    display: block !important;
+}
+
+.variants-table .variant-available:checked {
+    background: #ff9800 !important;
+    border-color: #ff9800 !important;
+}
+
+.variants-table .variant-available:checked::after {
+    content: '✓' !important;
+    display: block !important;
+    color: #171717 !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    pointer-events: none !important;
+    line-height: 1 !important;
+}
+
+.variants-table .variant-available:hover {
+    border-color: #ffb74d !important;
+    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.1) !important;
+}
+
+.variants-table .variant-available:focus {
+    outline: none !important;
+    border-color: #ff9800 !important;
+    box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.2) !important;
 }

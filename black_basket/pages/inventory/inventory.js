@@ -246,6 +246,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span>${searchTerm}</span>
                     <span class="category-new-indicator">New Category</span>
                 `;
+                
+                // Prevent blur when clicking on new category option
+                newOption.addEventListener('mousedown', (e) => {
+                    e.preventDefault();
+                });
+                
                 newOption.addEventListener('click', () => selectCategory(searchTerm));
                 categoryDropdown.appendChild(newOption);
                 filteredCategories = [searchTerm];
@@ -254,6 +260,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     const option = document.createElement('div');
                     option.className = 'category-option';
                     option.textContent = category;
+                    
+                    // Prevent blur when clicking on option
+                    option.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                    });
+                    
                     option.addEventListener('click', () => selectCategory(category));
                     categoryDropdown.appendChild(option);
                 });
@@ -366,6 +378,438 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize category autocomplete functionality
     setupCategoryAutocomplete();
     
+    // Name Autocomplete Functionality (Add Variants)
+    function setupNameAutocomplete() {
+        const nameInput = document.getElementById('inlineItemName');
+        const nameDropdown = document.getElementById('nameDropdown');
+        
+        if (!nameInput || !nameDropdown) return;
+        
+        // Move dropdown to body to escape modal clipping
+        document.body.appendChild(nameDropdown);
+        
+        let isDropdownVisible = false;
+        let typingTimer = null;
+        let hideTimer = null;
+        let isDropdownHovered = false;
+        const TYPING_PAUSE_THRESHOLD = 1000; // 1 seconds of no typing
+        const AUTO_HIDE_DELAY = 1000; // 1 seconds after pause
+        
+        // Show dropdown with "Add Variants" option
+        function showDropdown() {
+            nameDropdown.innerHTML = '';
+            
+            // Position dropdown below the input field
+            const inputRect = nameInput.getBoundingClientRect();
+            nameDropdown.style.top = (inputRect.bottom + 2) + 'px';
+            nameDropdown.style.left = inputRect.left + 'px';
+            nameDropdown.style.width = inputRect.width + 'px';
+            
+            // Create "Add Variants?" option
+            const addVariantsOption = document.createElement('div');
+            addVariantsOption.className = 'name-option add-variants';
+            addVariantsOption.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                    <div style="display: flex; flex-direction: column;">
+                        <span>Have variants?</span>
+                        <span class="name-helper">Otherwise, Ignore this</span>
+                    </div>
+                    <span class="name-variants-indicator">+ Add Variants</span>
+                </div>
+            `;
+            
+            // Prevent blur when clicking on add variants option
+            addVariantsOption.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+            });
+            
+            addVariantsOption.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Show variants section and hide price row
+                showVariantsSection();
+                hideDropdown();
+            });
+            
+            nameDropdown.appendChild(addVariantsOption);
+            nameDropdown.classList.add('show');
+            isDropdownVisible = true;
+            
+            // Add hover detection to dropdown
+            nameDropdown.addEventListener('mouseenter', () => {
+                isDropdownHovered = true;
+                // Clear hide timer when hovering
+                if (hideTimer) {
+                    clearTimeout(hideTimer);
+                    hideTimer = null;
+                }
+            });
+            
+            nameDropdown.addEventListener('mouseleave', () => {
+                isDropdownHovered = false;
+                // Restart hide timer when leaving dropdown
+                if (isDropdownVisible) {
+                    hideTimer = setTimeout(() => {
+                        hideDropdown();
+                    }, AUTO_HIDE_DELAY);
+                }
+            });
+        }
+        
+        // Hide dropdown
+        function hideDropdown() {
+            // Clear all timers when manually hiding
+            if (typingTimer) {
+                clearTimeout(typingTimer);
+                typingTimer = null;
+            }
+            if (hideTimer) {
+                clearTimeout(hideTimer);
+                hideTimer = null;
+            }
+            nameDropdown.classList.remove('show');
+            isDropdownVisible = false;
+            isDropdownHovered = false;
+        }
+        
+        // Event listeners
+        nameInput.addEventListener('focus', () => {
+            if (nameInput.value.trim() !== '' && !isVariantsMode) {
+                showDropdown();
+            }
+        });
+        
+        nameInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.trim();
+            
+            // Clear existing timers
+            if (typingTimer) clearTimeout(typingTimer);
+            if (hideTimer) clearTimeout(hideTimer);
+            
+            if (searchTerm !== '' && !isVariantsMode) {
+                // Show dropdown immediately only if not in variants mode
+                showDropdown();
+                
+                // Set typing pause detection
+                typingTimer = setTimeout(() => {
+                    // User stopped typing, start hide countdown only if not hovering
+                    if (!isDropdownHovered) {
+                        hideTimer = setTimeout(() => {
+                            // Double-check hover state before hiding
+                            if (!isDropdownHovered) {
+                                hideDropdown();
+                            }
+                        }, AUTO_HIDE_DELAY);
+                    }
+                }, TYPING_PAUSE_THRESHOLD);
+            } else {
+                hideDropdown();
+            }
+        });
+        
+        nameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && isDropdownVisible) {
+                e.preventDefault();
+                // No action when Enter is pressed - dropdown stays open
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                hideDropdown();
+                nameInput.blur();
+            }
+        });
+        
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!nameInput.contains(e.target) && !nameDropdown.contains(e.target)) {
+                hideDropdown();
+            }
+        });
+        
+        // Hide dropdown when input loses focus (with small delay for click handling)
+        nameInput.addEventListener('blur', (e) => {
+            setTimeout(() => {
+                if (!nameDropdown.contains(document.activeElement)) {
+                    hideDropdown();
+                }
+            }, 100);
+        });
+    }
+    
+    // Initialize name autocomplete functionality
+    setupNameAutocomplete();
+    
+    // Variants Functionality
+    let isVariantsMode = false;
+    
+    function showVariantsSection() {
+        const priceRow = document.getElementById('priceRow');
+        const variantsSection = document.getElementById('variantsSection');
+        const mainTrackStockToggle = document.getElementById('inlineTrackStockToggle');
+        
+        if (priceRow && variantsSection) {
+            priceRow.style.display = 'none';
+            variantsSection.style.display = 'block';
+            isVariantsMode = true;
+            
+            // Uncheck main track stock toggle when switching to variants mode
+            if (mainTrackStockToggle && mainTrackStockToggle.checked) {
+                mainTrackStockToggle.checked = false;
+                // Trigger change event to hide stock fields
+                mainTrackStockToggle.dispatchEvent(new Event('change'));
+            }
+            
+            // Always add a variant row when opening variants section
+            addVariantRow();
+        }
+    }
+    
+    function hasVariantsData() {
+        const tableBody = document.getElementById('variantsTableBody');
+        if (!tableBody) return false;
+        
+        const rows = tableBody.querySelectorAll('tr');
+        for (let row of rows) {
+            const inputs = row.querySelectorAll('input[type="text"], input[type="number"]');
+            for (let input of inputs) {
+                if (input.value.trim() !== '') {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    function hideVariantsSection() {
+        const priceRow = document.getElementById('priceRow');
+        const variantsSection = document.getElementById('variantsSection');
+        
+        if (priceRow && variantsSection) {
+            priceRow.style.display = 'flex';
+            variantsSection.style.display = 'none';
+            isVariantsMode = false;
+            
+            // Clear variants table
+            const tableBody = document.getElementById('variantsTableBody');
+            if (tableBody) {
+                tableBody.innerHTML = '';
+            }
+        }
+    }
+    
+    function addVariantRow() {
+        const tableBody = document.getElementById('variantsTableBody');
+        const trackStockToggle = document.getElementById('variantsTrackStockToggle');
+        if (!tableBody) return;
+        
+        const isTrackingStock = trackStockToggle && trackStockToggle.checked;
+        
+        const row = document.createElement('tr');
+        row.style.borderBottom = '1px solid #444';
+        
+        const stockColumns = isTrackingStock ? `
+            <td class="stock-column" style="padding: 8px;">
+                <div class="input-with-unit-selector">
+                    <input type="text" class="variant-stock" style="width: 100%; padding: 6px; background: transparent; border: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px; padding-right: 60px;">
+                    <div class="unit-selector">
+                        <span class="unit-prefix">|</span>
+                        <span class="unit-value">- -</span>
+                        <div class="unit-arrows">
+                            <button type="button" class="unit-arrow unit-up">▲</button>
+                            <button type="button" class="unit-arrow unit-down">▼</button>
+                        </div>
+                    </div>
+                </div>
+            </td>
+            <td class="stock-column" style="padding: 8px;">
+                <div class="input-with-unit-selector">
+                    <input type="text" class="variant-low-stock" style="width: 100%; padding: 6px; background: transparent; border: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px; padding-right: 60px;">
+                    <div class="unit-selector">
+                        <span class="unit-prefix">|</span>
+                        <span class="unit-value">- -</span>
+                        <div class="unit-arrows">
+                            <button type="button" class="unit-arrow unit-up">▲</button>
+                            <button type="button" class="unit-arrow unit-down">▼</button>
+                        </div>
+                    </div>
+                </div>
+            </td>
+        ` : `
+            <td class="stock-column" style="padding: 8px; display: none;"></td>
+            <td class="stock-column" style="padding: 8px; display: none;"></td>
+        `;
+        
+        row.innerHTML = `
+            <td style="padding: 8px; text-align: center;">
+                <input type="checkbox" class="variant-available" style="cursor: pointer;" checked>
+            </td>
+            <td style="padding: 8px;">
+                <input type="text" class="variant-name" style="width: 100%; padding: 6px; background: transparent; border: none; border-bottom: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px;">
+            </td>
+            <td style="padding: 8px;">
+                <input type="text" class="variant-price" currency-localization="₱" style="width: 100%; padding: 6px; background: transparent; border: none; border-bottom: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px;">
+            </td>
+            <td style="padding: 8px;">
+                <input type="text" class="variant-cost" currency-localization="₱" style="width: 100%; padding: 6px; background: transparent; border: none; border-bottom: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px;">
+            </td>
+            ${stockColumns}
+            <td style="padding: 8px;">
+                <input type="text" class="variant-sku" style="width: 100%; padding: 6px; background: transparent; border: none; border-bottom: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px;">
+            </td>
+            <td style="padding: 8px;">
+                <input type="text" class="variant-barcode" style="width: 100%; padding: 6px; background: transparent; border: none; border-bottom: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px;">
+            </td>
+            <td style="padding: 8px; text-align: center;">
+                <button type="button" class="delete-variant-btn" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; transition: all 0.2s ease;">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+        
+        // Setup currency inputs for this row
+        const currencyInputs = row.querySelectorAll('input[currency-localization]');
+        if (currencyInputs.length > 0 && typeof setupCurrencyInputs === 'function') {
+            setupCurrencyInputs(currencyInputs);
+        }
+        
+        // Add delete functionality to the new row
+        const deleteBtn = row.querySelector('.delete-variant-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
+                // Check if row has any data before confirming deletion
+                const inputs = row.querySelectorAll('input[type="text"], input[type="number"]');
+                let hasData = false;
+                
+                inputs.forEach(input => {
+                    if (input.value.trim() !== '') {
+                        hasData = true;
+                    }
+                });
+                
+                // Show confirmation dialog if row has data
+                if (hasData) {
+                    if (confirm('Are you sure you want to delete this variant? All entered data will be lost.')) {
+                        row.remove();
+                    }
+                } else {
+                    // No data, delete immediately
+                    row.remove();
+                }
+            });
+        }
+        
+        // Setup unit selectors for stock fields if tracking stock
+        if (isTrackingStock) {
+            setupUnitSelector();
+        }
+    }
+    
+    function toggleVariantsStockColumns() {
+        const trackStockToggle = document.getElementById('variantsTrackStockToggle');
+        const stockColumns = document.querySelectorAll('.stock-column');
+        const variantsTable = document.querySelector('.variants-table');
+        
+        console.log('toggleVariantsStockColumns called');
+        console.log('trackStockToggle found:', !!trackStockToggle);
+        console.log('variantsTable found:', !!variantsTable);
+        
+        if (!trackStockToggle) return;
+        
+        const isTracking = trackStockToggle.checked;
+        console.log('isTracking:', isTracking);
+        
+        // Add/remove class to control table width
+        if (variantsTable) {
+            if (isTracking) {
+                variantsTable.classList.add('with-stock');
+                console.log('Added with-stock class');
+                console.log('Table classes:', variantsTable.className);
+                console.log('Table width:', variantsTable.style.width || 'CSS controlled');
+            } else {
+                variantsTable.classList.remove('with-stock');
+                console.log('Removed with-stock class');
+            }
+        }
+        
+        // Show/hide stock columns
+        stockColumns.forEach(column => {
+            column.style.display = isTracking ? 'table-cell' : 'none';
+        });
+        
+        // Update existing rows
+        const existingRows = document.querySelectorAll('#variantsTableBody tr');
+        existingRows.forEach(row => {
+            const stockCells = row.querySelectorAll('.stock-column');
+            stockCells.forEach((cell, index) => {
+                if (isTracking && !cell.querySelector('input')) {
+                    // Add stock input if tracking is enabled and cell is empty
+                    const isInStock = index === 0;
+                    const placeholder = isInStock ? 'Stock qty' : 'Low stock';
+                    const className = isInStock ? 'variant-stock' : 'variant-low-stock';
+                    
+                    cell.innerHTML = `
+                        <div class="input-with-unit-selector">
+                            <input type="text" class="${className}" style="width: 100%; padding: 6px; background: transparent; border: none; border-bottom: 1px solid #555; color: #dbdbdb; border-radius: 4px; font-size: 12px; padding-right: 60px;">
+                            <div class="unit-selector">
+                                <span class="unit-prefix">|</span>
+                                <span class="unit-value">- -</span>
+                                <div class="unit-arrows">
+                                    <button type="button" class="unit-arrow unit-up">▲</button>
+                                    <button type="button" class="unit-arrow unit-down">▼</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else if (!isTracking) {
+                    // Clear content if tracking is disabled
+                    cell.innerHTML = '';
+                }
+                cell.style.display = isTracking ? 'table-cell' : 'none';
+            });
+        });
+        
+        // Setup unit selectors for new stock fields
+        if (isTracking) {
+            setupUnitSelector();
+        }
+    }
+    
+    // Set up variants event listeners
+    const closeVariantsBtn = document.getElementById('closeVariantsBtn');
+    const addVariantBtn = document.querySelector('.variants-add-btn');
+    const variantsTrackStockToggle = document.getElementById('variantsTrackStockToggle');
+    
+    if (closeVariantsBtn) {
+        console.log('Close variants button found, adding event listener');
+        closeVariantsBtn.addEventListener('click', function() {
+            console.log('Close variants button clicked!');
+            
+            // Check if there's data before closing
+            if (hasVariantsData()) {
+                if (confirm('Are you sure you want to close? All entered variant data will be lost.')) {
+                    hideVariantsSection();
+                }
+            } else {
+                // No data, close immediately
+                hideVariantsSection();
+            }
+        });
+    } else {
+        console.log('Close variants button not found');
+    }
+    
+    if (addVariantBtn) {
+        addVariantBtn.addEventListener('click', () => {
+            addVariantRow();
+        });
+    }
+    
+    if (variantsTrackStockToggle) {
+        variantsTrackStockToggle.addEventListener('change', toggleVariantsStockColumns);
+    }
+    
     // Track Stock Toggle Functionality
     function setupTrackStockToggle() {
         const trackStockToggle = document.getElementById('inlineTrackStockToggle');
@@ -405,27 +849,43 @@ document.addEventListener('DOMContentLoaded', function () {
     // Initialize track stock toggle functionality
     setupTrackStockToggle();
     
-    // Quantity Suffix Functionality
-    function setupQuantitySuffix() {
-        // Find all inputs with quantity-suffix attribute
-        const quantityInputs = document.querySelectorAll('input[quantity-suffix]');
+    // Unit Selector Functionality
+    function setupUnitSelector() {
+        // Available units in order
+        const units = ['- -', 'pcs', 'kg', 'L'];
         
-        quantityInputs.forEach(function(input) {
-            const suffix = input.getAttribute('quantity-suffix'); // Get the suffix (e.g., " | pcs")
+        // Find all inputs with unit selectors
+        const unitInputs = document.querySelectorAll('.input-with-unit-selector input');
+        
+        unitInputs.forEach(function(input) {
+            const container = input.parentElement;
+            const unitSelector = container.querySelector('.unit-selector');
+            const unitValue = container.querySelector('.unit-value');
+            const upArrow = container.querySelector('.unit-up');
+            const downArrow = container.querySelector('.unit-down');
             
-            // Handle input event - add suffix when user starts typing
+            if (!unitSelector || !unitValue) return;
+            
+            let currentUnitIndex = 0; // Start with "- -"
+            
+            // Function to update unit display
+            function updateUnit() {
+                unitValue.textContent = units[currentUnitIndex];
+            }
+            
+            // Function to change unit
+            function changeUnit(direction) {
+                if (direction === 'up') {
+                    currentUnitIndex = (currentUnitIndex + 1) % units.length;
+                } else {
+                    currentUnitIndex = (currentUnitIndex - 1 + units.length) % units.length;
+                }
+                updateUnit();
+            }
+            
+            // Handle input event - validate input
             input.addEventListener('input', function() {
                 let value = this.value;
-                
-                // If empty, leave as is (shows placeholder)
-                if (value === '') {
-                    return;
-                }
-                
-                // Remove suffix temporarily to get clean value
-                if (value.endsWith(suffix)) {
-                    value = value.substring(0, value.length - suffix.length);
-                }
                 
                 // Only allow numbers and decimal points
                 value = value.replace(/[^\d.]/g, '');
@@ -436,29 +896,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     value = parts[0] + '.' + parts.slice(1).join('');
                 }
                 
-                // Add suffix back if there's a value
-                if (value !== '') {
-                    this.value = value + suffix;
-                    
-                    // Set cursor position before the suffix
-                    const cursorPos = value.length;
-                    this.setSelectionRange(cursorPos, cursorPos);
-                }
+                // Update input value
+                this.value = value;
             });
             
-            // Handle keydown for special cases
+            // Handle keydown for validation and unit switching
             input.addEventListener('keydown', function(e) {
-                const value = this.value;
-                const cursorPos = this.selectionStart;
-                const suffixStartPos = value.length - suffix.length;
-                
-                // Prevent cursor from moving into or deleting the suffix
-                if (cursorPos > suffixStartPos && value.endsWith(suffix)) {
-                    if (['Backspace', 'Delete', 'ArrowRight', 'End'].includes(e.key)) {
-                        e.preventDefault();
-                        // Move cursor to before suffix
-                        this.setSelectionRange(suffixStartPos, suffixStartPos);
-                    }
+                // Handle arrow up/down for unit switching when input has focus
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    const direction = e.key === 'ArrowUp' ? 'up' : 'down';
+                    changeUnit(direction);
+                    return;
                 }
                 
                 // Allow only numbers, decimal point, and navigation keys
@@ -469,56 +918,65 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
             
-            // Handle click to prevent cursor from going into suffix
-            input.addEventListener('click', function() {
-                const value = this.value;
-                const cursorPos = this.selectionStart;
-                const suffixStartPos = value.length - suffix.length;
-                
-                if (cursorPos > suffixStartPos && value.endsWith(suffix)) {
-                    this.setSelectionRange(suffixStartPos, suffixStartPos);
-                }
-            });
-            
-            // Handle focus to select numeric part only
-            input.addEventListener('focus', function() {
-                const value = this.value;
-                if (value.endsWith(suffix)) {
-                    const numericLength = value.length - suffix.length;
-                    setTimeout(() => {
-                        this.setSelectionRange(0, numericLength);
-                    }, 0);
-                }
-            });
-            
-            // Handle blur to clean up the value
+            // Handle blur to format the value and conditionally hide unit selector
             input.addEventListener('blur', function() {
-                let value = this.value;
+                let value = this.value.trim();
                 
-                // If empty or just suffix, clear completely
-                if (value === '' || value === suffix) {
+                // If empty, clear completely and hide unit selector
+                if (value === '') {
                     this.value = '';
+                    unitSelector.classList.remove('show');
                     return;
                 }
                 
-                // If has suffix, validate and format the numeric part
-                if (value.endsWith(suffix)) {
-                    const numericPart = value.substring(0, value.length - suffix.length);
-                    const floatValue = parseFloat(numericPart);
-                    if (!isNaN(floatValue) && floatValue >= 0) {
-                        // Keep as is for whole numbers, or format decimals properly
-                        const formattedValue = floatValue % 1 === 0 ? floatValue.toString() : floatValue.toFixed(2).replace(/\.?0+$/, '');
-                        this.value = formattedValue + suffix;
-                    } else {
-                        this.value = '';
-                    }
+                // Validate and format the numeric value
+                const floatValue = parseFloat(value);
+                if (!isNaN(floatValue) && floatValue >= 0) {
+                    // Format the value (remove trailing zeros)
+                    const formattedValue = floatValue % 1 === 0 ? floatValue.toString() : floatValue.toFixed(2).replace(/\.?0+$/, '');
+                    this.value = formattedValue;
+                    // Keep unit selector visible when there's valid data
+                    unitSelector.classList.add('show');
+                } else {
+                    this.value = '';
+                    unitSelector.classList.remove('show');
                 }
             });
+            
+            // Handle focus to show unit selector
+            input.addEventListener('focus', function() {
+                unitSelector.classList.add('show');
+            });
+            
+            // Prevent blur when clicking on unit selector elements
+            unitSelector.addEventListener('mousedown', function(e) {
+                e.preventDefault(); // Prevent blur from firing
+            });
+            
+            // Handle arrow button clicks
+            if (upArrow) {
+                upArrow.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    changeUnit('up');
+                    input.focus(); // Keep input focused
+                });
+            }
+            
+            if (downArrow) {
+                downArrow.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    changeUnit('down');
+                    input.focus(); // Keep input focused
+                });
+            }
+            
+            // Initialize unit display
+            updateUnit();
         });
     }
     
-    // Initialize quantity suffix functionality
-    setupQuantitySuffix();
+    // Initialize unit selector functionality
+    setupUnitSelector();
     
     const inventoryTableBody = document.getElementById('inventory-table-body');
     const addProductForm = document.getElementById('add-product-form');
@@ -1456,4 +1914,207 @@ document.addEventListener('DOMContentLoaded', function () {
     };
     // Initial tab
     showTab('scan', false);
+    
+    // POS Options Functionality
+    setupPOSOptions();
 });
+
+// POS Options Setup
+function setupPOSOptions() {
+    const posCheckbox = document.getElementById('availablePOS');
+    const posContainer = document.getElementById('posOptionsContainer');
+    const tabButtons = document.querySelectorAll('.pos-tab-btn');
+    const tabPanels = document.querySelectorAll('.pos-tab-panel');
+    
+    // Handle checkbox toggle
+    if (posCheckbox && posContainer) {
+        posCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                posContainer.style.display = 'block';
+            } else {
+                posContainer.style.display = 'none';
+            }
+        });
+    }
+    
+    // Handle tab switching
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const targetTab = this.dataset.tab;
+            
+            // Update button states
+            tabButtons.forEach(b => {
+                b.classList.remove('active');
+                b.style.background = '#333';
+                b.style.color = '#dbdbdb';
+            });
+            this.classList.add('active');
+            this.style.background = '#ff9800';
+            this.style.color = '#171717';
+            
+            // Update panel visibility
+            tabPanels.forEach(panel => {
+                panel.style.display = 'none';
+                panel.classList.remove('active');
+            });
+            
+            const targetPanel = document.getElementById(targetTab + 'Tab');
+            if (targetPanel) {
+                targetPanel.style.display = 'block';
+                targetPanel.classList.add('active');
+            }
+        });
+    });
+    
+    // Track selected color
+    let selectedColor = null;
+    const colorMap = {
+        'red': '#f44336',
+        'orange': '#ff9800',
+        'yellow': '#ffeb3b',
+        'green': '#4caf50',
+        'blue': '#2196f3',
+        'purple': '#9c27b0',
+        'brown': '#795548',
+        'gray': '#607d8b'
+    };
+    
+    // Color selection functionality
+    const colorOptions = document.querySelectorAll('.color-option');
+    const shapeOptions = document.querySelectorAll('.shape-option');
+    
+    colorOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove selection from other colors
+            colorOptions.forEach(c => {
+                c.style.border = '2px solid transparent';
+                c.style.transform = 'scale(1)';
+            });
+            // Highlight selected color
+            this.style.border = '2px solid #fff';
+            this.style.transform = 'scale(1.2)';
+            
+            // Update selected color
+            selectedColor = this.dataset.color;
+            
+            // Update selected shape with new color (if any shape is selected)
+            updateSelectedShapeColor();
+        });
+    });
+    
+    // Helper function to update selected shape with new color
+    function updateSelectedShapeColor() {
+        const selectedShape = document.querySelector('.shape-option.selected');
+        if (selectedShape && selectedColor) {
+            const colorToUse = colorMap[selectedColor];
+            
+            // Apply new color to the selected shape
+            if (selectedShape.dataset.shape === 'triangle') {
+                selectedShape.style.borderBottom = `20px solid ${colorToUse}`;
+            } else {
+                selectedShape.style.background = colorToUse;
+                selectedShape.style.border = '2px solid #fff';
+            }
+        }
+    }
+    
+    // Shape selection functionality
+    shapeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove selection from other shapes
+            shapeOptions.forEach(s => {
+                if (s.dataset.shape === 'triangle') {
+                    s.style.borderBottom = '20px solid #555';
+                } else {
+                    s.style.background = '#555';
+                    s.style.border = '2px solid transparent';
+                }
+                s.style.transform = s.dataset.shape === 'diamond' ? 'rotate(45deg)' : 'scale(1)';
+                s.classList.remove('selected');
+            });
+            
+            // Determine color to use
+            const colorToUse = selectedColor ? colorMap[selectedColor] : '#555';
+            
+            // Highlight selected shape with appropriate color
+            if (this.dataset.shape === 'triangle') {
+                this.style.borderBottom = `20px solid ${colorToUse}`;
+                this.style.transform = 'scale(1.2)';
+            } else {
+                this.style.background = colorToUse;
+                this.style.border = selectedColor ? '2px solid #fff' : '2px solid transparent';
+                if (this.dataset.shape === 'diamond') {
+                    this.style.transform = 'rotate(45deg) scale(1.2)';
+                } else {
+                    this.style.transform = 'scale(1.2)';
+                }
+            }
+            this.classList.add('selected');
+        });
+    });
+    
+    // Image upload functionality
+    const imageUploadArea = document.querySelector('.image-upload-area');
+    const imageInput = document.getElementById('posProductImage');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadPlaceholder = document.querySelector('.upload-placeholder');
+    
+    if (imageUploadArea && imageInput) {
+        // Click to upload
+        imageUploadArea.addEventListener('click', function() {
+            imageInput.click();
+        });
+        
+        // Handle file selection
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select a valid image file.');
+                    return;
+                }
+                
+                // Validate file size (10MB limit)
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Image size must be less than 10MB.');
+                    return;
+                }
+                
+                // Preview image
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                    uploadPlaceholder.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+        
+        // Drag and drop functionality
+        imageUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#ff9800';
+            this.style.background = '#222';
+        });
+        
+        imageUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#555';
+            this.style.background = '#1a1a1a';
+        });
+        
+        imageUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#555';
+            this.style.background = '#1a1a1a';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                imageInput.files = files;
+                imageInput.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+}
