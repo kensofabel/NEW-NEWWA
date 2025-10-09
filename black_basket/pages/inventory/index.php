@@ -17,8 +17,14 @@ if (!isset($_SESSION['user_id'])) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="../../assets/images/icon.webp">
     <style>
+        /* Disable tab content when not active */
+        .pos-tab-panel[aria-disabled="true"] {
+            pointer-events: none;
+            opacity: 0.5;
+            filter: grayscale(0.5);
+        }
         /* Slide-up effect for POS options above form, never covering footer */
-        #posOptionsContainer {
+                #posOptionsContainer {
           position: absolute;
           left: 0;
           right: 0;
@@ -33,6 +39,12 @@ if (!isset($_SESSION['user_id'])) {
           transition: max-height 0.4s cubic-bezier(.4,0,.2,1), padding 0.4s cubic-bezier(.4,0,.2,1);
           padding: 0 20px;
           pointer-events: none;
+        }
+        
+        .product-form.pos-options-active, 
+        .product-form.pos-options-active * {
+            pointer-events: none !important;
+            opacity: 0.6;
         }
         #posOptionsContainer.slide-up {
           max-height: 420px;
@@ -51,6 +63,13 @@ if (!isset($_SESSION['user_id'])) {
         /* Ensure modal body is relative for absolute positioning */
         .inventory-modal-body, .modal-content, .modal-dialog {
           position: relative;
+        }
+
+        #posToggleChevron {
+          display: none;
+        }
+        #availablePOS:checked ~ label ~ #posToggleChevron {
+          display: inline-block;
         }
     </style>
 </head>
@@ -322,10 +341,15 @@ if (!isset($_SESSION['user_id'])) {
                         <div class="modal-divider" style="z-index: 30;"></div>
                         <!-- First row: Checkbox -->
                         <div style="display: flex; align-items: center; justify-content: flex-start; width: 100%;">
-                            <div class="form-group" style="display: flex; align-items: center; gap: 30px;">
-                                <input type="checkbox" id="availablePOS" name="availablePOS" class="field-checkbox">
-                                <label for="availablePOS">This item is available in POS</label>
-                            </div>
+                          <div class="form-group" style="display: flex; align-items: center; gap: 30px; position: relative;">
+                            <input type="checkbox" id="availablePOS" name="availablePOS" class="field-checkbox">
+                            <label for="availablePOS" style="cursor: pointer;">This item is available in POS</label>
+                          </div>
+                          <span id="posToggleChevron" style="font-size: 18px; cursor: pointer; user-select: none; transition: transform 0.3s; color: #fff; display: none; margin-left: auto; align-self: flex-start;">
+                            <svg id="chevronSVG" width="20" height="20" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align: middle;">
+                              <path id="chevronPath" fill-rule="evenodd" clip-rule="evenodd" d="M4.18179 8.81819C4.00605 8.64245 4.00605 8.35753 4.18179 8.18179L7.18179 5.18179C7.26618 5.0974 7.38064 5.04999 7.49999 5.04999C7.61933 5.04999 7.73379 5.0974 7.81819 5.18179L10.8182 8.18179C10.9939 8.35753 10.9939 8.64245 10.8182 8.81819C10.6424 8.99392 10.3575 8.99392 10.1818 8.81819L7.49999 6.13638L4.81819 8.81819C4.64245 8.99392 4.35753 8.99392 4.18179 8.81819Z" fill="#fff"/>
+                            </svg>
+                          </span>
                         </div>
                         
                         <!-- POS Options Tabs (hidden by default) -->
@@ -373,12 +397,31 @@ if (!isset($_SESSION['user_id'])) {
                                         <label style="display: block; color: #dbdbdb; font-size: 12px; margin-bottom: 10px;">Product Image</label>
                                         <div class="image-upload-area" style="border: 2px dashed #555; border-radius: 8px; padding: 20px; cursor: pointer; transition: all 0.2s ease; background: #1a1a1a; margin-bottom: 20px;">
                                             <input type="file" id="posProductImage" accept="image/*" style="display: none;">
-                                            <div class="upload-placeholder">
+                                            <div class="upload-placeholder" id="imageUploadPlaceholder">
                                                 <i class="fas fa-cloud-upload-alt" style="font-size: 32px; color: #777; margin-bottom: 8px;"></i>
                                                 <p style="color: #777; font-size: 12px; margin: 0;">Click to upload product image</p>
                                                 <p style="color: #555; font-size: 10px; margin: 4px 0 0 0;">JPG, PNG, GIF up to 10MB</p>
                                             </div>
-                                            <img id="imagePreview" style="display: none; max-width: 100%; max-height: 120px; border-radius: 4px; margin-top: 10px;">
+                                            <div id="imageCropBoxContainer" style="display:none; justify-content:center; align-items:center; margin-top:5px;">
+                                                <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%;">
+                                                    <div style="display:flex; flex-direction:row; align-items:flex-start; justify-content:center; width:100%;">
+                                                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:150px; margin-left: 32px; flex:0 0 auto;">
+                                                            <div id="cropBoxWrapper" style="width:150px; height:150px; background:#222; border:2px solid #ff9800; border-radius:8px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:center;">
+                                                                <img id="imageCropPreview" src="" style="position:absolute; left:0; top:0; width:100%; height:100%; object-fit:cover; object-position:center center; transition:transform 0.2s, object-position 0.2s;" draggable="false">
+                                                            </div>
+                                                        </div>
+                                                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; margin-top: 20px; flex:0 0 auto;">
+                                                            <input type="range" id="zoomSlider" min="1" max="3" step="0.01" value="1" style="writing-mode: bt-lr; -webkit-appearance: slider-vertical; appearance: slider-vertical; width:32px; height:120px; margin-top: 0;">
+                                                        </div>
+                                                    </div>
+                                                    <div style="margin-top:16px; display:flex; flex-direction:row; gap:10px; align-items:center; justify-content:center; width:100%;">
+                                                        <button type="button" id="moveLeftBtn" style="background:#333; color:#fff; border:none; border-radius:4px; width:32px; height:32px; font-size:18px; cursor:pointer;">&#8592;</button>
+                                                        <button type="button" id="moveUpBtn" style="background:#333; color:#fff; border:none; border-radius:4px; width:32px; height:32px; font-size:18px; cursor:pointer;">&#8593;</button>
+                                                        <button type="button" id="moveDownBtn" style="background:#333; color:#fff; border:none; border-radius:4px; width:32px; height:32px; font-size:18px; cursor:pointer;">&#8595;</button>
+                                                        <button type="button" id="moveRightBtn" style="background:#333; color:#fff; border:none; border-radius:4px; width:32px; height:32px; font-size:18px; cursor:pointer;">&#8594;</button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -406,6 +449,190 @@ if (!isset($_SESSION['user_id'])) {
 </div>
 
 <script>
+
+// --- Product Image Crop Box Logic ---
+document.addEventListener('DOMContentLoaded', function() {
+    // --- Updated selectors and event logic for new DOM structure ---
+    var fileInput = document.getElementById('posProductImage');
+    var uploadArea = document.querySelector('.image-upload-area');
+    var cropBoxWrapper = document.getElementById('cropBoxWrapper');
+    var placeholder = document.getElementById('imageUploadPlaceholder');
+    var cropBoxContainer = document.getElementById('imageCropBoxContainer');
+    var cropPreview = document.getElementById('imageCropPreview');
+    // Buttons and slider now outside cropBoxWrapper
+    var moveLeftBtn = document.getElementById('moveLeftBtn');
+    var moveRightBtn = document.getElementById('moveRightBtn');
+    var moveUpBtn = document.getElementById('moveUpBtn');
+    var moveDownBtn = document.getElementById('moveDownBtn');
+    var zoomSlider = document.getElementById('zoomSlider');
+    // State
+    var imgLoaded = false;
+    var posX = 50   ; // percent
+    var posY = 50; // percent
+    var zoom = 1;
+    var uploadEnabled = true;
+    var fileDialogOpen = false;
+
+    function triggerFileDialog(e) {
+        if (uploadEnabled && !fileDialogOpen) {
+            fileDialogOpen = true;
+            setTimeout(function() { fileInput.click(); }, 0);
+            if (e) e.stopImmediatePropagation();
+        }
+    }
+    // Initial: only upload area is clickable
+    if (uploadArea && fileInput) {
+        uploadArea.addEventListener('click', triggerFileDialog);
+    }
+    function removeUploadAreaClick() {
+        if (uploadArea) {
+            uploadArea.removeEventListener('click', triggerFileDialog);
+            uploadArea.style.pointerEvents = 'none';
+        }
+    }
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            fileDialogOpen = false;
+            var file = e.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                var reader = new FileReader();
+                reader.onload = function(evt) {
+                    // Reset crop state for new image
+                    posX = 50;
+                    posY = 50;
+                    zoom = 1;
+                    cropPreview = document.getElementById('imageCropPreview');
+                    cropPreview.src = evt.target.result;
+                    cropPreview.style.objectPosition = posX + '% ' + posY + '%';
+                    cropPreview.style.transform = 'scale(' + zoom + ')';
+                    placeholder.style.display = 'none';
+                    cropBoxContainer = document.getElementById('imageCropBoxContainer');
+                    cropBoxContainer.style.display = 'flex';
+                    imgLoaded = true;
+                    // Remove click from uploadArea, add to cropBoxWrapper
+                    removeUploadAreaClick();
+                    uploadArea.style.cursor = 'default';
+                    uploadArea.style.pointerEvents = 'none';
+                    cropBoxWrapper = document.getElementById('cropBoxWrapper');
+                    // Remove previous listeners to avoid duplicates
+                    if (cropBoxWrapper) {
+                        cropBoxWrapper.style.pointerEvents = 'auto';
+                        cropBoxWrapper.style.cursor = 'pointer';
+                        cropBoxWrapper.removeEventListener('click', triggerFileDialog);
+                        cropBoxWrapper.addEventListener('click', function(ev) {
+                            // Only trigger file dialog if not clicking the image itself or the zoom slider
+                            var zoomSlider = document.getElementById('zoomSlider');
+                            if (ev.target === cropBoxWrapper) {
+                                triggerFileDialog(ev);
+                            }
+                        });
+                        // Prevent zoomSlider from bubbling events to cropBoxWrapper
+                        var zoomSlider = document.getElementById('zoomSlider');
+                        if (zoomSlider) {
+                            zoomSlider.addEventListener('mousedown', function(e) { e.stopPropagation(); }, true);
+                            zoomSlider.addEventListener('click', function(e) { e.stopPropagation(); }, true);
+                            // Do NOT stop propagation for input event, let it update zoom
+                        }
+                    }
+                    // Ensure crop controls are always clickable
+                    var moveLeftBtn = document.getElementById('moveLeftBtn');
+                    var moveRightBtn = document.getElementById('moveRightBtn');
+                    var moveUpBtn = document.getElementById('moveUpBtn');
+                    var moveDownBtn = document.getElementById('moveDownBtn');
+                    if (moveLeftBtn) moveLeftBtn.style.pointerEvents = 'auto';
+                    if (moveRightBtn) moveRightBtn.style.pointerEvents = 'auto';
+                    if (moveUpBtn) moveUpBtn.style.pointerEvents = 'auto';
+                    if (moveDownBtn) moveDownBtn.style.pointerEvents = 'auto';
+                    if (zoomSlider) zoomSlider.style.pointerEvents = 'auto';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+    function updateCrop() {
+        cropPreview = document.getElementById('imageCropPreview');
+        if (cropPreview) {
+            cropPreview.style.objectPosition = posX + '% ' + posY + '%';
+            cropPreview.style.transform = 'scale(' + zoom + ')';
+            if (zoom > 1) {
+                cropPreview.style.objectFit = 'none';
+            } else {
+                cropPreview.style.objectFit = 'cover';
+            }
+        }
+    }
+    // Attach crop controls listeners (always re-attach after image upload)
+    function attachCropControls() {
+        moveLeftBtn = document.getElementById('moveLeftBtn');
+        moveRightBtn = document.getElementById('moveRightBtn');
+        moveUpBtn = document.getElementById('moveUpBtn');
+        moveDownBtn = document.getElementById('moveDownBtn');
+        zoomSlider = document.getElementById('zoomSlider');
+
+        function getCropPreview() {
+            return document.getElementById('imageCropPreview');
+        }
+
+        if (moveLeftBtn) {
+            moveLeftBtn.onclick = function(e) {
+                e.stopPropagation();
+                if (!imgLoaded) { console.log('Left: img not loaded'); return; }
+                posX = Math.max(0, posX - 2);
+                cropPreview = getCropPreview();
+                updateCrop();
+                console.log('Left btn', posX, posY, zoom);
+            };
+        }
+        if (moveRightBtn) {
+            moveRightBtn.onclick = function(e) {
+                e.stopPropagation();
+                if (!imgLoaded) { console.log('Right: img not loaded'); return; }
+                posX = Math.min(100, posX + 2);
+                cropPreview = getCropPreview();
+                updateCrop();
+                console.log('Right btn', posX, posY, zoom);
+            };
+        }
+        if (moveUpBtn) {
+            moveUpBtn.onclick = function(e) {
+                e.stopPropagation();
+                if (!imgLoaded) { console.log('Up: img not loaded'); return; }
+                posY = Math.max(0, posY - 2);
+                cropPreview = getCropPreview();
+                updateCrop();
+                console.log('Up btn', posX, posY, zoom);
+            };
+        }
+        if (moveDownBtn) {
+            moveDownBtn.onclick = function(e) {
+                e.stopPropagation();
+                if (!imgLoaded) { console.log('Down: img not loaded'); return; }
+                posY = Math.min(100, posY + 2);
+                cropPreview = getCropPreview();
+                updateCrop();
+                console.log('Down btn', posX, posY, zoom);
+            };
+        }
+        if (zoomSlider) {
+            zoomSlider.oninput = function(e) {
+                e.stopPropagation();
+                if (!imgLoaded) { console.log('Zoom: img not loaded'); return; }
+                zoom = parseFloat(zoomSlider.value);
+                cropPreview = getCropPreview();
+                updateCrop();
+                console.log('Zoom slider', posX, posY, zoom);
+            };
+        }
+    }
+    attachCropControls();
+
+    // After image upload, re-attach crop controls
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            setTimeout(attachCropControls, 50);
+        });
+    }
+});
 function showInventoryTab(tab) {
     // For now, only one tab, but structure is ready for more
     document.getElementById('tab-manage-inventory').classList.add('active');
@@ -519,23 +746,141 @@ document.addEventListener('DOMContentLoaded', function() {
 // Input validation for Next button is now handled in inventory.js
 
 document.addEventListener('DOMContentLoaded', function() {
-  var posCheckbox = document.getElementById('availablePOS');
-  var posOptions = document.getElementById('posOptionsContainer');
-  if (posCheckbox && posOptions) {
-    posCheckbox.addEventListener('change', function() {
-      if (this.checked) {
-        posOptions.style.display = 'block';
-        setTimeout(function() {
-          posOptions.classList.add('slide-up');
-        }, 10);
-      } else {
-        posOptions.classList.remove('slide-up');
-        setTimeout(function() {
-          posOptions.style.display = 'none';
-        }, 400);
-      }
-    });
-  }
+    var posCheckbox = document.getElementById('availablePOS');
+    var posOptions = document.getElementById('posOptionsContainer');
+    var posChevron = document.getElementById('posToggleChevron');
+    var chevronPath = document.getElementById('chevronPath');
+    var modalFooter = document.querySelector('.modal-footer');
+    var productForm = document.querySelector('.product-form');
+    function updateChevronVisibility() {
+        if (posCheckbox.checked) {
+            posChevron.style.display = 'inline-block';
+        } else {
+            posChevron.style.display = 'none';
+        }
+    }
+    if (posCheckbox && posOptions && posChevron && chevronPath) {
+        function updateChevron() {
+            if (posOptions.classList.contains('slide-up')) {
+                chevronPath.setAttribute('d', 'M4.18179 8.81819C4.00605 8.64245 4.00605 8.35753 4.18179 8.18179L7.18179 5.18179C7.26618 5.0974 7.38064 5.04999 7.49999 5.04999C7.61933 5.04999 7.73379 5.0974 7.81819 5.18179L10.8182 8.18179C10.9939 8.35753 10.9939 8.64245 10.8182 8.81819C10.6424 8.99392 10.3575 8.99392 10.1818 8.81819L7.49999 6.13638L4.81819 8.81819C4.64245 8.99392 4.35753 8.99392 4.18179 8.81819Z');
+            } else {
+                chevronPath.setAttribute('d', 'M4.18179 6.18181C4.35753 6.00608 4.64245 6.00608 4.81819 6.18181L7.49999 8.86362L10.1818 6.18181C10.3575 6.00608 10.6424 6.00608 10.8182 6.18181C10.9939 6.35755 10.9939 6.64247 10.8182 6.81821L7.81819 9.81821C7.73379 9.9026 7.61934 9.95001 7.49999 9.95001C7.38064 9.95001 7.26618 9.9026 7.18179 9.81821L4.18179 6.81821C4.00605 6.64247 4.00605 6.35755 4.18179 6.18181Z');
+            }
+        }
+        posCheckbox.addEventListener('change', function() {
+            updateChevronVisibility();
+            if (this.checked) {
+                posOptions.style.display = 'block';
+                setTimeout(function() {
+                    posOptions.classList.add('slide-up');
+                    updateChevron();
+                    if (productForm) productForm.classList.add('pos-options-active');
+                }, 10);
+            } else {
+                posOptions.classList.remove('slide-up');
+                setTimeout(function() {
+                    posOptions.style.display = 'none';
+                    updateChevron();
+                    if (productForm) productForm.classList.remove('pos-options-active');
+                }, 400);
+            }
+        });
+        posChevron.addEventListener('click', function() {
+            if (!posCheckbox.checked) return;
+            if (posOptions.classList.contains('slide-up')) {
+                posOptions.classList.remove('slide-up');
+                setTimeout(function() {
+                    posOptions.style.display = 'none';
+                    updateChevron();
+                    if (productForm) productForm.classList.remove('pos-options-active');
+                }, 400);
+            } else {
+                posOptions.style.display = 'block';
+                setTimeout(function() {
+                    posOptions.classList.add('slide-up');
+                    updateChevron();
+                    if (productForm) productForm.classList.add('pos-options-active');
+                }, 10);
+            }
+        });
+
+        updateChevronVisibility();
+        updateChevron();
+
+        // POS tab disabling logic
+        var colorShapeTabBtn = document.querySelector('.pos-tab-btn[data-tab="colorShape"]');
+        var imageTabBtn = document.querySelector('.pos-tab-btn[data-tab="image"]');
+        var colorShapeTabPanel = document.getElementById('colorShapeTab');
+        var imageTabPanel = document.getElementById('imageTab');
+        function setTabDisabling() {
+            if (colorShapeTabBtn && imageTabBtn && colorShapeTabPanel && imageTabPanel) {
+                if (colorShapeTabBtn.classList.contains('active')) {
+                    colorShapeTabPanel.setAttribute('aria-disabled', 'false');
+                    imageTabPanel.setAttribute('aria-disabled', 'true');
+                } else if (imageTabBtn.classList.contains('active')) {
+                    colorShapeTabPanel.setAttribute('aria-disabled', 'true');
+                    imageTabPanel.setAttribute('aria-disabled', 'false');
+                }
+            }
+        }
+        // Initial state
+        setTabDisabling();
+        // Listen for tab button clicks
+        if (colorShapeTabBtn && imageTabBtn) {
+            colorShapeTabBtn.addEventListener('click', function() {
+                colorShapeTabBtn.classList.add('active');
+                imageTabBtn.classList.remove('active');
+                colorShapeTabPanel.style.display = 'block';
+                imageTabPanel.style.display = 'none';
+                setTabDisabling();
+            });
+            imageTabBtn.addEventListener('click', function() {
+                imageTabBtn.classList.add('active');
+                colorShapeTabBtn.classList.remove('active');
+                imageTabPanel.style.display = 'block';
+                colorShapeTabPanel.style.display = 'none';
+                setTabDisabling();
+            });
+        }
+
+        // Hide POS options when clicking outside POS options and footer
+        let blockNextToggle = false;
+        document.addEventListener('mousedown', function(e) {
+            if (
+                posCheckbox.checked &&
+                posOptions.classList.contains('slide-up') &&
+                !posOptions.contains(e.target) &&
+                !(modalFooter && modalFooter.contains(e.target)) &&
+                !(posChevron && posChevron.contains(e.target)) &&
+                !(posCheckbox && posCheckbox.contains(e.target))
+            ) {
+                // If clicking on product form, block the next toggle
+                if (productForm && productForm.contains(e.target)) {
+                    blockNextToggle = true;
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+                posOptions.classList.remove('slide-up');
+                setTimeout(function() {
+                    posOptions.style.display = 'none';
+                    updateChevron();
+                    if (productForm) productForm.classList.remove('pos-options-active');
+                }, 400);
+            }
+        });
+
+        // Specifically block the first click on the track stock toggle after hiding POS options
+        var trackStockToggle = document.getElementById('inlineTrackStockToggle');
+        if (trackStockToggle) {
+            trackStockToggle.addEventListener('click', function(e) {
+                if (blockNextToggle) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    blockNextToggle = false;
+                }
+            }, true);
+        }
+    }
 });
 </script>
 <script src="inventory.js"></script>

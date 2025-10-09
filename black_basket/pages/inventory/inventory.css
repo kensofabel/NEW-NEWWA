@@ -537,7 +537,7 @@
     transition: .4s;
     border-radius: 10px;
     border: 1.5px solid #555;
-    pointer-events: auto;
+    pointer-events: 10;
 }
 
 .slider:before {
