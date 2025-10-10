@@ -207,21 +207,18 @@ document.addEventListener('DOMContentLoaded', function () {
         // Move dropdown to body to escape modal clipping
         document.body.appendChild(categoryDropdown);
         
-        // Predefined categories (you can extend this list or fetch from API)
-        const existingCategories = [
-            'Fruits & Vegetables',
-            'Dairy & Eggs', 
-            'Meat & Poultry',
-            'Bakery',
-            'Beverages',
-            'Snacks',
-            'Frozen Foods',
-            'Household',
-            'Personal Care',
-            'Cleaning Supplies',
-            'Electronics',
-            'Office Supplies'
-        ];
+        // Fetch categories from backend
+        let existingCategories = [];
+        function fetchCategories() {
+            fetch('api.php?categories=1')
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        existingCategories = data;
+                    }
+                });
+        }
+        fetchCategories();
         
         let highlightedIndex = -1;
         let filteredCategories = [];

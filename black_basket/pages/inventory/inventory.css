@@ -1,3 +1,8 @@
+#imageUploadArea {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 /* Modal Tabs Transition for reverse/back animation */
 .modal-tabs.slide-in-left {
     animation: tabPanelSlideInLeft 0.25s cubic-bezier(.4,0,.2,1);
