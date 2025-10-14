@@ -2,6 +2,20 @@
 const scannerModal = document.getElementById('scannerModal');
 
 document.addEventListener('DOMContentLoaded', function () {
+    // Auto-generate SKU for Add Items form on page load
+    setTimeout(() => {
+        const skuInput = document.getElementById('inlineItemSKU');
+        if (skuInput) {
+            fetch('get_next_sku.php')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.next_sku) {
+                        skuInput.value = data.next_sku;
+                        skuInput.removeAttribute('readonly');
+                    }
+                });
+        }
+    }, 200);
     // Helper to enable/disable Next button
     function updateNextButtonState() {
         var skuInput = document.getElementById('manualSKU');
@@ -1049,6 +1063,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Handle add product form submission (will be implemented later)
     // addProductForm.addEventListener('submit', function (e) {
     //     // Form submission logic will be added after barcode scanning
+    //     // No duplicate SKU error handling needed
     // });
 
     // Search filter
@@ -1746,6 +1761,7 @@ function showTab(tabName, transition = true) {
         if (addItemsPanel) {
             // Make sure addItemsPanel is rendered for sizing
             addItemsPanel.style.display = 'block';
+            // Auto-generate SKU only if input is empty removed
             // Temporarily set width to 'auto' to measure natural content width
             const prevWidth = addItemsPanel.style.width;
             addItemsPanel.style.width = 'auto';
@@ -1937,8 +1953,17 @@ document.addEventListener('DOMContentLoaded', function () {
         if (form) {
             form.onsubmit = function(e) {
                 e.preventDefault();
-                // Collect form data here
-                showTab(previousTab);
+                // Fetch and set next SKU directly after successful add
+                setTimeout(function() {
+                    fetch('get_next_sku.php')
+                        .then(response => response.json())
+                        .then(data => {
+                            var skuInput = document.querySelector('#inlineAddItemsForm input[name="sku"], #inlineAddItemsForm input#inlineItemSKU');
+                            if (skuInput && data && data.next_sku) {
+                                skuInput.value = data.next_sku;
+                            }
+                        });
+                }, 350); // Wait for tab transition and DOM
                 return false;
             };
         }

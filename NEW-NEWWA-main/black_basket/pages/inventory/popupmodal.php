@@ -127,7 +127,7 @@
                         <div class="form-row" style="display: flex; gap: 15px; justify-content: space-between;">
                             <div class="form-group name-autocomplete" style="flex:3; position: relative;">
                                 <label for="inlineItemName">Name</label>
-                                <input type="text" id="inlineItemName" name="itemName" required class="input-box" autocomplete="off">
+                                <input type="text" id="inlineItemName" name="itemName" class="input-box" autocomplete="off">
                                 <div class="name-dropdown" id="nameDropdown"></div>
                             </div>
                             <div class="form-group category-autocomplete" style="flex:2; position: relative;">
@@ -233,6 +233,21 @@
                             <div class="form-group" style="flex:2;">
                                 <label for="inlineItemSKU">SKU</label>
                                 <input type="text" id="inlineItemSKU" name="itemSKU" class="input-box" placeholder="Unique item identifier">
+                                <div id="skuErrorMsg" style="color:#dc3545; font-size:14px; margin-top:4px; display:none;"></div>
+                                <script>
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    var skuInput = document.getElementById('inlineItemSKU');
+                                    var skuErrorMsg = document.getElementById('skuErrorMsg');
+                                    if (skuInput && skuErrorMsg) {
+                                        skuInput.addEventListener('input', function() {
+                                            if (skuErrorMsg.style.display === 'block') {
+                                                skuErrorMsg.style.display = 'none';
+                                                skuErrorMsg.textContent = '';
+                                            }
+                                        });
+                                    }
+                                });
+                                </script>
                             </div>
                             <div class="form-group" style="flex:2;">
                                 <label for="inlineItemBarcode">Barcode</label>
@@ -554,8 +569,20 @@ document.addEventListener('DOMContentLoaded', function() {
                                 scannerModal.classList.remove('show');
                             }, 800); // Wait for popup to show
                         }
+                        // Hide SKU error message
+                        var skuErrorMsg = document.getElementById('skuErrorMsg');
+                        if (skuErrorMsg) {
+                            skuErrorMsg.style.display = 'none';
+                            skuErrorMsg.textContent = '';
+                        }
                     } else {
-                        showErrorPopup('Error: ' + (data.error || 'Unknown error'));
+                        var skuErrorMsg = document.getElementById('skuErrorMsg');
+                        if (skuErrorMsg && data.error && data.error.toLowerCase().includes('sku')) {
+                            skuErrorMsg.textContent = data.error;
+                            skuErrorMsg.style.display = 'block';
+                        } else {
+                            showErrorPopup('Error: ' + (data.error || 'Unknown error'));
+                        }
                     }
                 })
                 .catch(err => {

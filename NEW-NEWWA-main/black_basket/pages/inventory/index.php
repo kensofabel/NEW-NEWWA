@@ -6,7 +6,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 // Ensure default category exists for this user
-createDefaultCategoryForUser($_SESSION['user_id']);
+createDefaultCategory($_SESSION['user_id']);
 ?>
 
 <html lang="en">

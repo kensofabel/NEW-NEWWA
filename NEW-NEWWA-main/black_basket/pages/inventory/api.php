@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 session_start();
 header('Content-Type: application/json');
 require_once '../../config/db.php';
@@ -49,6 +52,18 @@ switch ($method) {
             http_response_code(400);
             echo json_encode(['error' => 'Name is required']);
             exit;
+        }
+
+        // Duplicate SKU error (does not block flow, just returns error)
+        $sku = isset($data['sku']) ? $conn->real_escape_string($data['sku']) : '';
+        if ($sku !== '') {
+            $dup_sql = "SELECT id FROM products WHERE sku='$sku' LIMIT 1";
+            $dup_res = $conn->query($dup_sql);
+            if ($dup_res && $dup_res->num_rows > 0) {
+                http_response_code(409);
+                echo json_encode(['error' => 'You already have an item with this SKU.']);
+                exit;
+            }
         }
         $category = isset($data['category']) ? $conn->real_escape_string($data['category']) : '';
         // Accept 'variable' as a string for price, otherwise float
