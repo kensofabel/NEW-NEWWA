@@ -14,6 +14,160 @@ document.addEventListener('DOMContentLoaded', function () {
                         skuInput.removeAttribute('readonly');
                     }
                 });
+
+                // Delegated Undo handler: ensures Undo works even if per-row handlers were not wired
+                document.addEventListener('DOMContentLoaded', function() {
+                    const brMount = document.getElementById('barcodeResultsMount');
+                    if (!brMount) return;
+                    brMount.addEventListener('click', function(e) {
+                        const undoBtn = e.target.closest && e.target.closest('.br-undo');
+                        if (!undoBtn) return;
+                        const node = undoBtn.closest('.barcode-result-row');
+                        if (!node) return;
+                        console.log('delegated br-undo clicked for node', node.getAttribute && node.getAttribute('data-product-id'), 'lastAdded:', node._lastAdded);
+
+                        const last = node._lastAdded;
+                        if (!last || !last.qty) {
+                            showErrorPopup('Nothing to undo');
+                            return;
+                        }
+
+                        const prevText = undoBtn.textContent;
+                        try { undoBtn.textContent = 'Undoing…'; undoBtn.disabled = true; } catch (e) {}
+
+                        const undoQty = -Math.abs(parseFloat(last.qty) || 0);
+                        const adjustPayload = { action: 'adjust_stock', product_id: parseInt(node.getAttribute('data-product-id') || 0), qty: undoQty };
+                        if (node.getAttribute('data-variant-id')) adjustPayload.variant_id = parseInt(node.getAttribute('data-variant-id'));
+                        if (last.unit && last.unit !== '- -') adjustPayload.unit = last.unit;
+
+                        const instockEl = node.querySelector('.br-instock-value');
+                        const statusEl = node.querySelector('.br-status') || node.querySelector('.br-status-value');
+                        const successCol = node.querySelector('.br-col-success');
+                        const addQty = node.querySelector('.br-add-qty');
+                        const addBtn = node.querySelector('.br-add-btn');
+                        const trackToggle = node.querySelector('.br-track-toggle input');
+                        const trackingOn = trackToggle ? trackToggle.checked : true;
+
+                        // Show recommendation when input focused if item is low or out of stock
+                        if (addQty) {
+                            addQty.addEventListener('focus', function() {
+                                try {
+                                    const curText = instockEl ? instockEl.textContent.trim() : (node.getAttribute('data-in-stock') || '');
+                                    const lowText = node.getAttribute('data-low-stock') || '';
+                                    const parseNum = s => { const m = String(s || '').match(/^\s*([0-9]+(?:\.[0-9]+)?)/); return m ? parseFloat(m[1]) : null; };
+                                    const curNum = parseNum(curText);
+                                    const lowNum = parseNum(lowText);
+                                    if (lowNum !== null && (curNum === null || curNum <= lowNum)) {
+                                        const need = Math.max(1, Math.ceil((lowNum - (curNum || 0)) + 1));
+                                        let msg = node.querySelector('.br-recommend-msg');
+                                        if (!msg) {
+                                            msg = document.createElement('div');
+                                            msg.className = 'br-recommend-msg';
+                                            msg.setAttribute('role','status');
+                                            // initially hidden for measuring
+                                            msg.style.visibility = 'hidden';
+                                            node.appendChild(msg);
+                                        }
+                                        msg.textContent = `We recommend you adding ${need} or more to exceed low stock`;
+
+                                        // Measure geometry and position to the right-top of the input, clamped inside the row
+                                        // ensure it's in the DOM and can be measured
+                                        const rowRect = node.getBoundingClientRect();
+                                        const inputRect = addQty.getBoundingClientRect();
+                                        const inner = node.closest('.barcode-results-inner') || node.parentElement;
+                                        const innerRect = inner ? inner.getBoundingClientRect() : rowRect;
+
+                                        // make visible to get accurate size
+                                        msg.style.display = '';
+                                        // Force browser to render to get sizes
+                                        const ttWidth = Math.min((msg.offsetWidth || 160), Math.max(80, innerRect.width - 12));
+                                        const ttHeight = msg.offsetHeight || 28;
+
+                                        // Position: right edge aligned to input right, top above input
+                                        let left = (inputRect.right - rowRect.left) - ttWidth;
+                                        let top = (inputRect.top - rowRect.top) - ttHeight - 6;
+
+                                        // Clamp left within row bounds (6px padding)
+                                        const minLeft = 6;
+                                        const maxLeft = Math.max(6, rowRect.width - ttWidth - 6);
+                                        if (left < minLeft) left = minLeft;
+                                        if (left > maxLeft) left = maxLeft;
+
+                                        // Prevent tooltip from appearing too far above the row (limit to -ttHeight - 6)
+                                        const minTop = -ttHeight - 6;
+                                        if (top < minTop) top = minTop;
+
+                                        msg.style.left = Math.round(left) + 'px';
+                                        msg.style.top = Math.round(top) + 'px';
+                                        msg.style.visibility = 'visible';
+                                    }
+                                } catch (e) { console.error('recommend focus error', e); }
+                            });
+                            addQty.addEventListener('blur', function() {
+                                try {
+                                    const msg = node.querySelector('.br-recommend-msg');
+                                    if (msg) msg.style.display = 'none';
+                                } catch (e) {}
+                            });
+                            // Hide tooltip as soon as the user starts typing
+                            addQty.addEventListener('input', function() {
+                                try {
+                                    const msg = node.querySelector('.br-recommend-msg');
+                                    if (msg) msg.style.display = 'none';
+                                } catch (e) {}
+                            });
+                        }
+
+                        // Use AbortController to avoid hangs and handle non-JSON/server errors clearly
+                        const controller = new AbortController();
+                        const timeoutMs = 8000;
+                        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+                        fetch('api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(adjustPayload), signal: controller.signal })
+                        .then(response => {
+                            clearTimeout(timeoutId);
+                            if (!response.ok) {
+                                return response.text().then(text => { throw new Error('Server returned ' + response.status + ': ' + text); });
+                            }
+                            return response.text().then(text => {
+                                try { return JSON.parse(text); } catch (e) { throw new Error('Invalid JSON response: ' + text); }
+                            });
+                        })
+                        .then(res => {
+                            if (!res || !res.success) throw new Error(res && res.error ? res.error : 'Undo failed');
+                            if (instockEl) instockEl.textContent = res.new_in_stock || '—';
+                            if (statusEl) statusEl.textContent = res.status || '—';
+
+                            // restore row UI
+                            const cols = node.querySelectorAll('.br-col');
+                            cols.forEach(col => {
+                                if (!col.classList.contains('br-col-success')) {
+                                    if (col.classList.contains('br-col-instock') || col.classList.contains('br-col-status') || col.classList.contains('br-col-add')) {
+                                        if (trackingOn) col.style.display = '';
+                                        else col.style.display = 'none';
+                                    } else {
+                                        col.style.display = '';
+                                    }
+                                }
+                            });
+                            if (successCol) successCol.style.display = 'none';
+                            if (addQty) { addQty.style.display = ''; addQty.disabled = false; addQty.value = ''; }
+                            if (addBtn) { addBtn.style.display = ''; addBtn.disabled = false; }
+                            console.log('adjust_stock response', res);
+                            try { undoBtn.disabled = false; undoBtn.textContent = prevText; } catch (e) {}
+                        })
+                        .catch(err => {
+                            clearTimeout(timeoutId);
+                            console.error('delegated undo error', err);
+                            if (err.name === 'AbortError') {
+                                showErrorPopup('Undo request timed out');
+                            } else {
+                                showErrorPopup('Failed to undo: ' + (err.message || err));
+                            }
+                            try { undoBtn.disabled = false; undoBtn.textContent = prevText; } catch (e) {}
+                        });
+                    });
+                });
         }
     }, 200);
     // Helper to enable/disable Next button
@@ -323,16 +477,35 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
         
+        // Default placeholder value used in markup
+        const CATEGORY_DEFAULT = 'No Category';
+
         // Event listeners
         categoryInput.addEventListener('focus', () => {
+            // If the field currently contains the default sentinel, clear it so user doesn't have to erase
+            if (categoryInput.value && categoryInput.value.trim() === CATEGORY_DEFAULT) {
+                categoryInput.value = '';
+            }
             const filtered = filterCategories(categoryInput.value);
             showDropdown(filtered, categoryInput.value);
+        });
+
+        // When blurring, if empty restore the default sentinel so UI shows 'No Category'
+        categoryInput.addEventListener('blur', () => {
+            setTimeout(() => { // allow click handlers on dropdown to run first
+                if (!categoryInput.value || categoryInput.value.trim() === '') {
+                    categoryInput.value = CATEGORY_DEFAULT;
+                }
+                hideDropdown();
+            }, 150);
         });
         
         categoryInput.addEventListener('input', (e) => {
             const searchTerm = e.target.value;
-            const filtered = filterCategories(searchTerm);
-            showDropdown(filtered, searchTerm);
+            // If the user types and the default value was present, treat it as empty
+            const effectiveSearch = (searchTerm && searchTerm.trim() === CATEGORY_DEFAULT) ? '' : searchTerm;
+            const filtered = filterCategories(effectiveSearch);
+            showDropdown(filtered, effectiveSearch);
         });
         
         categoryInput.addEventListener('keydown', (e) => {
@@ -583,6 +756,8 @@ document.addEventListener('DOMContentLoaded', function () {
         for (let row of rows) {
             const inputs = row.querySelectorAll('input[type="text"], input[type="number"]');
             for (let input of inputs) {
+                // Ignore auto-filled inputs (they are not user-entered data unless edited)
+                if (input.hasAttribute('data-auto-filled')) continue;
                 if (input.value.trim() !== '') {
                     return true;
                 }
@@ -678,6 +853,12 @@ document.addEventListener('DOMContentLoaded', function () {
         `;
         
         tableBody.appendChild(row);
+
+        // Mark the variant SKU input as required for browser validation
+        var createdSkuInput = row.querySelector('input.variant-sku');
+        if (createdSkuInput) {
+            createdSkuInput.setAttribute('required', 'required');
+        }
         
         // Setup currency inputs for this row
         const currencyInputs = row.querySelectorAll('input[currency-localization]');
@@ -715,6 +896,35 @@ document.addEventListener('DOMContentLoaded', function () {
         if (isTrackingStock) {
             setupUnitSelector();
         }
+
+        // Fetch and populate SKU for the newly added variant if it's empty
+        (function populateVariantSKU() {
+            try {
+                var skuInput = row.querySelector('input.variant-sku');
+                if (!skuInput) return;
+                // Only fetch if field is currently empty
+                if (skuInput.value && skuInput.value.trim() !== '') return;
+                fetch('get_next_sku.php')
+                    .then(function(resp) { return resp.json(); })
+                    .then(function(data) {
+                        if (data && data.next_sku) {
+                            skuInput.value = data.next_sku;
+                            // Mark as auto-filled so closing variants ignores it until user edits
+                            skuInput.setAttribute('data-auto-filled', 'true');
+                            // Remove auto-filled flag if user modifies the field
+                            skuInput.addEventListener('input', function onEdit() {
+                                skuInput.removeAttribute('data-auto-filled');
+                                skuInput.removeEventListener('input', onEdit);
+                            });
+                        }
+                    })
+                    .catch(function(err) {
+                        console.error('Failed to fetch variant SKU:', err);
+                    });
+            } catch (e) {
+                console.error('populateVariantSKU error', e);
+            }
+        })();
     }
     
     function toggleVariantsStockColumns() {
@@ -1120,6 +1330,14 @@ document.addEventListener('DOMContentLoaded', function () {
         addItemsModalContent.addEventListener('animationend', function handler() {
             addItemsModalContent.classList.remove('modal-slide-in');
             addItemsModalContent.removeEventListener('animationend', handler);
+            // After modal slide-in finishes, focus the name input if present
+            try {
+                const inlineName = document.getElementById('inlineItemName');
+                if (inlineName) {
+                    // small timeout to ensure layout settled
+                    setTimeout(() => { try { inlineName.focus(); } catch (e) {} }, 40);
+                }
+            } catch (e) {}
         });
     }
 
@@ -1172,6 +1390,14 @@ document.addEventListener('DOMContentLoaded', function () {
         requestAnimationFrame(() => {
             node.classList.add('show');
         });
+
+        // Focus name after inline panel transition completes
+        setTimeout(() => {
+            try {
+                const inlineName = node.querySelector('#inlineItemName') || document.getElementById('inlineItemName');
+                if (inlineName) inlineName.focus();
+            } catch (e) { /* ignore */ }
+        }, 420); // closeInlineAddItemsPanel uses 400ms for removal
 
         // Close button handler
     const backBtn = node.querySelector('#backInlineAddItems');
@@ -1229,6 +1455,10 @@ document.addEventListener('DOMContentLoaded', function () {
     
     let cameraStream = null;
     let isManualMode = false;
+    let cameraDecodeActive = false;
+    let cameraDecodeLast = 0;
+    let cameraDecodeHandle = null;
+    let quaggaActive = false;
     
     // Check for hardware scanner
     function checkHardwareScanner() {
@@ -1252,6 +1482,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 } 
             });
             document.getElementById('cameraVideo').srcObject = cameraStream;
+            // Ensure the video is playing, then start camera decoding if supported
+            const videoEl = document.getElementById('cameraVideo');
+            try {
+                const playPromise = videoEl.play();
+                if (playPromise && typeof playPromise.then === 'function') {
+                    playPromise.then(() => {
+                        console.log('Camera video playing');
+                        tryStartCameraDecoding();
+                    }).catch((err) => {
+                        console.warn('video.play() promise rejected', err);
+                        tryStartCameraDecoding();
+                    });
+                } else {
+                    tryStartCameraDecoding();
+                }
+            } catch (e) {
+                console.warn('Error starting video play', e);
+                tryStartCameraDecoding();
+            }
             return true;
         } catch (error) {
             console.error('Camera access denied:', error);
@@ -1265,6 +1514,119 @@ document.addEventListener('DOMContentLoaded', function () {
             cameraStream.getTracks().forEach(track => track.stop());
             cameraStream = null;
         }
+        stopCameraDecoding();
+    }
+
+    // Start camera frame decoding using BarcodeDetector (if available)
+    function tryStartCameraDecoding() {
+        // Prefer native BarcodeDetector when available
+        if ('BarcodeDetector' in window) {
+            if (!cameraStream) return;
+            if (cameraDecodeActive) return;
+            cameraDecodeActive = true;
+            const video = document.getElementById('cameraVideo');
+            const detector = new BarcodeDetector({ formats: ['ean_13','ean_8','upc_e','upc_a','code_128','code_39','qr_code'] });
+
+            async function decodeLoop() {
+                if (!cameraDecodeActive || !video || video.readyState < 2) {
+                    // video not ready yet
+                    cameraDecodeHandle = requestAnimationFrame(decodeLoop);
+                    return;
+                }
+                try {
+                    const detections = await detector.detect(video);
+                    if (detections && detections.length) {
+                        const now = Date.now();
+                        const text = detections[0].rawValue || detections[0].raw_value || detections[0].value;
+                        if (text && (now - cameraDecodeLast) > 1200) {
+                            cameraDecodeLast = now;
+                            try { handleBarcodeScanned(String(text)); } catch (e) { console.error('handleBarcodeScanned error', e); }
+                        }
+                    }
+                } catch (e) {
+                    // Detector may throw if frame not ready; log occasionally for diagnostics
+                    const nowt = Date.now();
+                    if (!detector._lastErrLog || (nowt - detector._lastErrLog) > 5000) {
+                        console.warn('BarcodeDetector.detect error (suppressed frequent logs):', e);
+                        detector._lastErrLog = nowt;
+                    }
+                }
+                cameraDecodeHandle = requestAnimationFrame(decodeLoop);
+            }
+            cameraDecodeHandle = requestAnimationFrame(decodeLoop);
+            return;
+        }
+
+        // Fallback: load QuaggaJS dynamically and start live decoding for 1D barcodes
+        if (quaggaActive) return;
+        // load script if necessary
+        function loadScript(url) {
+            return new Promise((resolve, reject) => {
+                if (window.Quagga) return resolve(window.Quagga);
+                const s = document.createElement('script');
+                s.src = url;
+                s.onload = () => resolve(window.Quagga);
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+
+        // Stop any existing camera stream so Quagga can open its own
+        try { stopCamera(); } catch (e) {}
+
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js')
+            .then((_) => {
+                if (!window.Quagga) {
+                    console.warn('Quagga failed to load');
+                    return;
+                }
+                const target = document.querySelector('.camera-container') || document.getElementById('cameraVideo');
+                window.Quagga.init({
+                    inputStream: {
+                        name: 'Live',
+                        type: 'LiveStream',
+                        target: target,
+                        constraints: { facingMode: 'environment' }
+                    },
+                    decoder: {
+                        readers: ['ean_reader','ean_8_reader','upc_reader','upc_e_reader','code_128_reader','code_39_reader']
+                    },
+                    locate: true
+                }, function(err) {
+                    if (err) { console.error('Quagga init error', err); return; }
+                    window.Quagga.start();
+                    quaggaActive = true;
+                    window.Quagga.onDetected(function(result) {
+                        try {
+                            const code = result && result.codeResult && result.codeResult.code;
+                            const now = Date.now();
+                            if (code && (now - cameraDecodeLast) > 1200) {
+                                cameraDecodeLast = now;
+                                handleBarcodeScanned(String(code));
+                            }
+                        } catch (e) { console.error('Quagga onDetected error', e); }
+                    });
+                });
+            })
+            .catch(err => {
+                console.warn('Failed to load Quagga fallback', err);
+            });
+    }
+
+    function stopCameraDecoding() {
+        cameraDecodeActive = false;
+        if (cameraDecodeHandle) {
+            cancelAnimationFrame(cameraDecodeHandle);
+            cameraDecodeHandle = null;
+        }
+        // stop Quagga if active
+        try {
+            if (window.Quagga && quaggaActive) {
+                window.Quagga.offDetected && window.Quagga.offDetected();
+                window.Quagga.stop();
+                quaggaActive = false;
+            }
+        } catch (e) { console.error('Error stopping Quagga', e); }
     }
     
     // Show scanner modal
@@ -1333,9 +1695,30 @@ document.addEventListener('DOMContentLoaded', function () {
     // Handle barcode scanned
     function handleBarcodeScanned(barcode) {
         console.log('Barcode scanned:', barcode);
-        closeScannerModal();
-        // Here you would proceed to next step with barcode data
-        alert(`Barcode scanned: ${barcode}\nWould proceed to product form...`);
+        // Close scanner modal first
+        try { closeScannerModal(); } catch (e) {}
+
+        // Treat scanned barcode the same as a barcode-only search
+        const searchVal = 'barcode:' + encodeURIComponent(barcode);
+        fetch('api.php?find=' + searchVal)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.found) {
+                    if (Array.isArray(data.results) && data.results.length > 0) {
+                        renderBarcodeResults(data.results, barcode, 'barcode');
+                    } else if (data.product) {
+                        renderBarcodeResults([data.product], barcode, 'barcode');
+                    } else {
+                        openAddItemsPrefill('', barcode);
+                    }
+                } else {
+                    openAddItemsPrefill('', barcode);
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching barcode scan results', err);
+                openAddItemsPrefill('', barcode);
+            });
     }
     
     // Switch to scanner mode
@@ -1360,6 +1743,8 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // Reinitialize scanner
         checkAndInitializeScanner();
+        // Update tab tracking so Add Items back will return to scan
+        try { previousTab = 'scan'; currentTab = 'scan'; } catch (e) {}
     }
     
     // Switch to manual mode
@@ -1384,6 +1769,9 @@ document.addEventListener('DOMContentLoaded', function () {
         
         stopCamera();
         
+        // Update tab tracking so Add Items back will return to manual
+        try { previousTab = 'manual'; currentTab = 'manual'; } catch (e) {}
+    
     // Do not clear manual inputs here; keep user data
     }
     
@@ -1413,9 +1801,106 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         
         console.log('Manual entry:', { barcode, sku });
-        closeScannerModal();
-        // Here you would proceed to next step with manual data
-        alert(`Manual entry:\nBarcode: ${barcode || 'Not provided'}\nSKU: ${sku || 'Not provided'}\nWould proceed to product form...`);
+        // First check if product exists by calling API
+        let query = '';
+        if (sku) query = 'sku:' + encodeURIComponent(sku);
+        else if (barcode) query = 'barcode:' + encodeURIComponent(barcode);
+        else query = encodeURIComponent(sku || barcode);
+
+        // If both SKU and barcode provided, perform parallel checks and detect mismatch
+        if (sku && barcode) {
+            const skuUrl = 'api.php?find=sku:' + encodeURIComponent(sku);
+            const barcodeUrl = 'api.php?find=barcode:' + encodeURIComponent(barcode);
+            Promise.all([fetch(skuUrl).then(r => r.json().catch(() => ({}))), fetch(barcodeUrl).then(r => r.json().catch(() => ({})))])
+                .then(([skuRes, barcodeRes]) => {
+                    try {
+                        const skuFound = skuRes && skuRes.found;
+                        const barcodeFound = barcodeRes && barcodeRes.found;
+
+                        // Quick match detection: if SKU returns a product and barcode results include that product/variant -> treat as match
+                        let matched = false;
+                        if (skuFound && skuRes.product && barcodeFound && Array.isArray(barcodeRes.results)) {
+                            const prodId = skuRes.product.id || skuRes.product.product_id || null;
+                            if (prodId) {
+                                for (const r of barcodeRes.results) {
+                                    // product rows can have id or product_id depending on type
+                                    const rid = r.id || r.product_id || null;
+                                    if (rid && parseInt(rid) === parseInt(prodId)) { matched = true; break; }
+                                }
+                            }
+                        }
+
+                        if (matched) {
+                            // Render combined 'both' view using sku product as authoritative
+                            renderBarcodeResults(skuRes.product ? [skuRes.product] : (barcodeRes.results || []), sku + ' and ' + barcode, 'both');
+                            return;
+                        }
+
+                        // If neither found, open Add Items directly (no popup)
+                        if (!skuFound && !barcodeFound) {
+                            openAddItemsPrefill(sku, barcode);
+                            return;
+                        }
+
+                        // If not matched, show mismatch popup offering SKU-only or Barcode-only views
+                        showMismatchPopup(sku, barcode, skuRes, barcodeRes);
+                    } catch (e) {
+                        console.error('Mismatch flow error', e);
+                        alert('Error processing search. Please try again.');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error performing parallel find', err);
+                    alert('Error checking product. Please try again.');
+                });
+            return;
+        }
+
+        // Single-term path (sku only or barcode only)
+        fetch('api.php?find=' + query)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.found) {
+                    // If API returned 'results' array (multiple matches), render list
+                    if (Array.isArray(data.results) && data.results.length > 0) {
+                        // Decide header and type depending on which search terms were provided
+                        let type, headerVal;
+                        if (sku && barcode) {
+                            type = 'both';
+                            headerVal = sku + ' and ' + barcode;
+                        } else {
+                            type = barcode ? 'barcode' : (sku ? 'sku' : 'barcode');
+                            headerVal = barcode || sku || '';
+                        }
+                        renderBarcodeResults(data.results, headerVal, type);
+                    } else if (data.product) {
+                        // If the user searched by SKU only, show the product inside the barcode/results panel
+                        if (sku && !barcode) {
+                            renderBarcodeResults([data.product], sku, 'sku');
+                            return; // already rendered
+                        } else if (sku && barcode) {
+                            // both present: show combined header
+                            renderBarcodeResults([data.product], sku + ' and ' + barcode, 'both');
+                            return;
+                        } else {
+                            // Single product match and not a SKU-only search: keep existing behavior
+                            closeScannerModal();
+                            alert('Product found. Opening product details...');
+                            // TODO: navigate to product edit/view if available
+                        }
+                    } else {
+                        // Fallback: open Add Items
+                        openAddItemsPrefill(sku, barcode);
+                    }
+                } else {
+                    // Not found -> open Add Items tab and prefill inline form
+                    openAddItemsPrefill(sku, barcode);
+                }
+            })
+            .catch(err => {
+                console.error('Error checking product existence', err);
+                alert('Error checking product. Please try again.');
+            });
     }
     
 
@@ -1460,32 +1945,742 @@ document.addEventListener('DOMContentLoaded', function () {
         stopCamera();
         
         // Populate form with data from manual mode if available
+        const enableBarcodeCheckbox = document.getElementById('enableBarcode');
+        const enableSKUCheckbox = document.getElementById('enableSKU');
+        const barcodeInputEl = document.getElementById('manualBarcode');
+        const skuInputEl = document.getElementById('manualSKU');
         const barcodeChecked = enableBarcodeCheckbox && enableBarcodeCheckbox.checked;
         const skuChecked = enableSKUCheckbox && enableSKUCheckbox.checked;
-        const barcodeData = barcodeInput ? barcodeInput.value.trim() : '';
-        const skuData = skuInput ? skuInput.value.trim() : '';
-        
+        const barcodeData = barcodeInputEl ? barcodeInputEl.value.trim() : '';
+        const skuData = skuInputEl ? skuInputEl.value.trim() : '';
+
         if (barcodeChecked && barcodeData) {
-            document.getElementById('productBarcode').value = barcodeData;
+            const prodBarcode = document.getElementById('productBarcode');
+            if (prodBarcode) prodBarcode.value = barcodeData;
         }
         if (skuChecked && skuData) {
-            document.getElementById('productSKU').value = skuData;
+            const prodSKU = document.getElementById('productSKU');
+            if (prodSKU) prodSKU.value = skuData;
         }
     }
     
     // Handle Next button - proceed to form with data
     function handleNext() {
-        const barcodeChecked = enableBarcodeCheckbox.checked;
-        const skuChecked = enableSKUCheckbox.checked;
-        const barcodeData = barcodeInput.value.trim();
-        const skuData = skuInput.value.trim();
-        
-        console.log('Proceeding with data:', {
-            barcode: barcodeChecked ? barcodeData : null,
-            sku: skuChecked ? skuData : null
-        });
-        
-        switchToFormMode();
+        const enableBarcodeCheckbox = document.getElementById('enableBarcode');
+        const enableSKUCheckbox = document.getElementById('enableSKU');
+        const barcodeInput = document.getElementById('manualBarcode');
+        const skuInput = document.getElementById('manualSKU');
+
+        const barcodeChecked = enableBarcodeCheckbox && enableBarcodeCheckbox.checked;
+        const skuChecked = enableSKUCheckbox && enableSKUCheckbox.checked;
+        const barcodeData = barcodeInput ? barcodeInput.value.trim() : '';
+        const skuData = skuInput ? skuInput.value.trim() : '';
+
+        const searchVal = skuChecked && skuData ? ('sku:' + encodeURIComponent(skuData)) : (barcodeChecked && barcodeData ? ('barcode:' + encodeURIComponent(barcodeData)) : encodeURIComponent(skuData || barcodeData));
+
+        // If both provided, run parallel checks to detect mismatch
+        if (skuChecked && barcodeChecked && skuData && barcodeData) {
+            const skuUrl = 'api.php?find=sku:' + encodeURIComponent(skuData);
+            const barcodeUrl = 'api.php?find=barcode:' + encodeURIComponent(barcodeData);
+            Promise.all([fetch(skuUrl).then(r => r.json().catch(() => ({}))), fetch(barcodeUrl).then(r => r.json().catch(() => ({})))])
+                .then(([skuRes, barcodeRes]) => {
+                    try {
+                        const skuFound = skuRes && skuRes.found;
+                        const barcodeFound = barcodeRes && barcodeRes.found;
+                        let matched = false;
+                        if (skuFound && skuRes.product && barcodeFound && Array.isArray(barcodeRes.results)) {
+                            const prodId = skuRes.product.id || skuRes.product.product_id || null;
+                            if (prodId) for (const r of barcodeRes.results) { const rid = r.id || r.product_id || null; if (rid && parseInt(rid) === parseInt(prodId)) { matched = true; break; } }
+                        }
+
+                        if (matched) {
+                            renderBarcodeResults(skuRes.product ? [skuRes.product] : (barcodeRes.results || []), skuData + ' and ' + barcodeData, 'both');
+                            return;
+                        }
+
+                        if (!skuFound && !barcodeFound) {
+                            openAddItemsPrefill(skuData, barcodeData);
+                            return;
+                        }
+
+                        showMismatchPopup(skuData, barcodeData, skuRes, barcodeRes);
+                    } catch (e) {
+                        console.error('Mismatch flow error', e);
+                        alert('Error processing search. Please try again.');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error performing parallel find', err);
+                    alert('Error checking product. Please try again.');
+                });
+            return;
+        }
+
+        // Default single-term behavior
+        fetch('api.php?find=' + searchVal)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.found) {
+                    if (Array.isArray(data.results) && data.results.length > 0) {
+                        // If multiple results, render list. Use barcode if present otherwise SKU. If both provided, show combined header
+                        let type, headerVal;
+                        if (skuChecked && barcodeChecked) {
+                            type = 'both';
+                            headerVal = skuData + ' and ' + barcodeData;
+                        } else {
+                            type = barcodeChecked ? 'barcode' : (skuChecked ? 'sku' : 'barcode');
+                            headerVal = barcodeChecked ? barcodeData : (skuChecked ? skuData : '');
+                        }
+                        renderBarcodeResults(data.results, headerVal, type);
+                    } else if (data.product) {
+                        if (skuChecked && !barcodeChecked) {
+                            renderBarcodeResults([data.product], skuData, 'sku');
+                            return;
+                        } else if (skuChecked && barcodeChecked) {
+                            renderBarcodeResults([data.product], skuData + ' and ' + barcodeData, 'both');
+                            return;
+                        } else {
+                            closeScannerModal();
+                            alert('Product already exists. Opening product details...');
+                        }
+                    } else {
+                        openAddItemsPrefill(skuChecked ? skuData : '', barcodeChecked ? barcodeData : '');
+                    }
+                } else {
+                    openAddItemsPrefill(skuChecked ? skuData : '', barcodeChecked ? barcodeData : '');
+                }
+            })
+            .catch(err => {
+                console.error('Error checking product existence', err);
+                alert('Error checking product. Please try again.');
+            });
+    }
+
+    // Show mismatch popup and wire buttons
+    function showMismatchPopup(sku, barcode, skuResp, barcodeResp) {
+        const modal = document.getElementById('mismatchChoiceModal');
+        if (!modal) return;
+        // Elements
+        const titleEl = document.getElementById('mismatchTitle');
+        const bodyEl = document.getElementById('mismatchBody');
+        const skuBtn = document.getElementById('mismatchSkuBtn');
+        const barcodeBtn = document.getElementById('mismatchBarcodeBtn');
+        const closeBtn = document.getElementById('mismatchCloseBtn');
+
+        // Reset previous handlers/labels to avoid stale state when modal is reused
+        try {
+            if (skuBtn) { skuBtn.onclick = null; skuBtn.disabled = false; skuBtn.textContent = 'Show SKU match'; }
+            if (barcodeBtn) { barcodeBtn.onclick = null; barcodeBtn.disabled = false; barcodeBtn.textContent = 'Show Barcode match'; }
+            if (closeBtn) closeBtn.onclick = null;
+        } catch (e) { /* ignore */ }
+
+        function cleanup() {
+            modal.style.display = 'none';
+            try { if (skuBtn) skuBtn.onclick = null; if (barcodeBtn) barcodeBtn.onclick = null; if (closeBtn) closeBtn.onclick = null; } catch (e) {}
+        }
+
+        if (closeBtn) closeBtn.onclick = cleanup;
+
+        // Determine cases to show different messaging and actions
+        const skuFound = skuResp && skuResp.found;
+        const barcodeFound = barcodeResp && barcodeResp.found;
+
+        // Default labels
+        if (titleEl) titleEl.textContent = 'Inputs doesnt match';
+        if (bodyEl) bodyEl.textContent = 'Would you like to:';
+
+        // Case: SKU exists but barcode doesn't
+        if (skuFound && !barcodeFound) {
+            if (titleEl) titleEl.textContent = 'SKU exists — Barcode does not';
+            if (bodyEl) bodyEl.textContent = 'Choose an action:';
+            if (skuBtn) skuBtn.textContent = 'Show the SKU match';
+            if (barcodeBtn) barcodeBtn.textContent = 'Create new using the barcode';
+
+            if (skuBtn) skuBtn.onclick = function() {
+                cleanup();
+                if (skuResp && skuResp.found && skuResp.product) {
+                    renderBarcodeResults([skuResp.product], sku, 'sku');
+                } else {
+                    fetch('api.php?find=sku:' + encodeURIComponent(sku)).then(r => r.json()).then(d => {
+                        if (d && d.found) {
+                            if (d.product) renderBarcodeResults([d.product], sku, 'sku');
+                            else if (Array.isArray(d.results) && d.results.length) renderBarcodeResults(d.results, sku, 'sku');
+                            else openAddItemsPrefill(sku, '');
+                        } else openAddItemsPrefill(sku, '');
+                    }).catch(err => { console.error('sku fallback fetch', err); alert('Error fetching SKU results'); });
+                }
+            };
+
+            if (barcodeBtn) barcodeBtn.onclick = function() {
+                cleanup();
+                openAddItemsPrefill('', barcode);
+            };
+
+            modal.style.display = 'block';
+            return; // done
+        }
+
+        // Case: Barcode exists but SKU doesn't
+        if (barcodeFound && !skuFound) {
+            if (titleEl) titleEl.textContent = 'Barcode exists — SKU does not';
+            if (bodyEl) bodyEl.textContent = 'Choose an action:';
+            if (skuBtn) skuBtn.textContent = 'Create new using the SKU';
+            if (barcodeBtn) barcodeBtn.textContent = 'Show the Barcode match';
+
+            if (skuBtn) skuBtn.onclick = function() {
+                cleanup();
+                openAddItemsPrefill(sku, '');
+            };
+
+            if (barcodeBtn) barcodeBtn.onclick = function() {
+                cleanup();
+                if (barcodeResp && barcodeResp.found && Array.isArray(barcodeResp.results) && barcodeResp.results.length) {
+                    renderBarcodeResults(barcodeResp.results, barcode, 'barcode');
+                } else {
+                    fetch('api.php?find=barcode:' + encodeURIComponent(barcode)).then(r => r.json()).then(d => {
+                        if (d && d.found) {
+                            if (Array.isArray(d.results) && d.results.length) renderBarcodeResults(d.results, barcode, 'barcode');
+                            else if (d.product) renderBarcodeResults([d.product], barcode, 'barcode');
+                            else openAddItemsPrefill('', barcode);
+                        } else openAddItemsPrefill('', barcode);
+                    }).catch(err => { console.error('barcode fallback fetch', err); alert('Error fetching Barcode results'); });
+                }
+            };
+
+            modal.style.display = 'block';
+            return;
+        }
+
+        // Default: both exist but mismatch (original behavior)
+        if (skuBtn) skuBtn.onclick = function() {
+            cleanup();
+            if (skuResp && skuResp.found && skuResp.product) {
+                renderBarcodeResults([skuResp.product], sku, 'sku');
+            } else {
+                fetch('api.php?find=sku:' + encodeURIComponent(sku)).then(r => r.json()).then(d => {
+                    if (d && d.found) {
+                        if (d.product) renderBarcodeResults([d.product], sku, 'sku');
+                        else if (Array.isArray(d.results) && d.results.length) renderBarcodeResults(d.results, sku, 'sku');
+                        else openAddItemsPrefill(sku, '');
+                    } else openAddItemsPrefill(sku, '');
+                }).catch(err => { console.error('sku fallback fetch', err); alert('Error fetching SKU results'); });
+            }
+        };
+
+        if (barcodeBtn) barcodeBtn.onclick = function() {
+            cleanup();
+            if (barcodeResp && barcodeResp.found && Array.isArray(barcodeResp.results) && barcodeResp.results.length) {
+                renderBarcodeResults(barcodeResp.results, barcode, 'barcode');
+            } else {
+                fetch('api.php?find=barcode:' + encodeURIComponent(barcode)).then(r => r.json()).then(d => {
+                    if (d && d.found) {
+                        if (Array.isArray(d.results) && d.results.length) renderBarcodeResults(d.results, barcode, 'barcode');
+                        else if (d.product) renderBarcodeResults([d.product], barcode, 'barcode');
+                        else openAddItemsPrefill('', barcode);
+                    } else openAddItemsPrefill('', barcode);
+                }).catch(err => { console.error('barcode fallback fetch', err); alert('Error fetching Barcode results'); });
+            }
+        };
+
+        modal.style.display = 'block';
+    }
+
+    // Helper to open Add Items and prefill
+    function openAddItemsPrefill(sku, barcode) {
+        showTab('addItems', true);
+        window.ensureAttachAddItems();
+        setTimeout(() => {
+            const inlineSKU = document.getElementById('inlineItemSKU');
+            const inlineBarcode = document.getElementById('inlineItemBarcode');
+            const inlineName = document.getElementById('inlineItemName');
+            // SKU: if provided, set it; if not provided, ensure an auto-generated SKU is present
+            if (sku && inlineSKU) {
+                inlineSKU.value = sku;
+            } else if (inlineSKU) {
+                // Try to fetch a fresh next SKU; fall back to leaving any existing value
+                fetch('get_next_sku.php').then(r => r.json()).then(d => {
+                    if (d && d.next_sku) inlineSKU.value = d.next_sku;
+                }).catch(() => {
+                    // ignore errors; previous auto-generated SKU may already be present
+                });
+            }
+
+            // Barcode: set to provided value or clear the field when empty
+            if (inlineBarcode) {
+                inlineBarcode.value = barcode ? barcode : '';
+            }
+            // Auto-focus the name field, but only after the add-items transition completes
+            if (inlineName) {
+                setTimeout(() => {
+                    try { inlineName.focus(); } catch (e) {}
+                }, 320); // showTab uses a 250ms transition; use slightly longer delay
+            }
+        }, 120);
+    }
+
+    // Render a list of products/variants that match a barcode
+    function renderBarcodeResults(results, searchedBarcode, searchType = 'barcode') {
+        // Show barcode results in its own tab panel
+        showTab('barcodeResults', true);
+
+        // Update header barcode value if present
+        try {
+            const headerValue = document.getElementById('barcodeResultsHeaderValue');
+            const headerPrefix = document.getElementById('barcodeResultsHeaderPrefix');
+            if (headerPrefix) {
+                if (searchType === 'sku') headerPrefix.textContent = 'Item with SKU:';
+                else if (searchType === 'both') headerPrefix.textContent = 'Items matching:';
+                else headerPrefix.textContent = 'Items using barcode:';
+            }
+            if (headerValue) {
+                headerValue.textContent = searchedBarcode || '';
+            }
+        } catch (e) {
+            console.error('Failed to set barcodeResults header value', e);
+        }
+
+        setTimeout(() => {
+            const panel = document.getElementById('barcodeResultsTabPanel');
+            if (!panel) return;
+            const mount = document.getElementById('barcodeResultsMount');
+            if (!mount) return;
+
+            // Clear previous results
+            mount.innerHTML = '';
+
+            // Template
+            const tpl = document.getElementById('barcodeResultRowTemplateStandalone');
+
+            results.forEach(item => {
+                let node;
+                if (tpl && 'content' in tpl) {
+                    node = tpl.content.firstElementChild.cloneNode(true);
+                } else {
+                    // Fallback: basic element
+                    node = document.createElement('div');
+                    node.className = 'barcode-result-row';
+                }
+
+                // Fill fields
+                const catEl = node.querySelector('.br-category');
+                const nameEl = node.querySelector('.br-name');
+                const trackToggle = node.querySelector('.br-track-toggle');
+                const instockEl = node.querySelector('.br-instock-value');
+                const statusEl = node.querySelector('.br-status');
+                const addQty = node.querySelector('.br-add-qty');
+                const addBtn = node.querySelector('.br-add-btn');
+
+                if (catEl) catEl.textContent = item.category || '';
+                if (nameEl) nameEl.textContent = item.type === 'variant' ? (item.variant_name + ' (of ' + item.product_name + ')') : (item.name || '');
+                // Columns that can be hidden when tracking is off
+                const instockCol = node.querySelector('.br-col-instock');
+                const statusCol = node.querySelector('.br-col-status');
+                const addCol = node.querySelector('.br-col-add');
+
+                // Determine tracking state from DB (1 => on, 0 => off)
+                let trackingVal = 0;
+                if (item.type === 'product') {
+                    trackingVal = parseInt(item.track_stock) || 0;
+                } else if (item.type === 'variant') {
+                    trackingVal = parseInt(item.product_track_stock) || 0;
+                }
+                const trackingOn = trackingVal === 1;
+
+                // Attach ids for persistence: product or variant
+                if (item.type === 'product' && item.id) {
+                    node.setAttribute('data-product-id', item.id);
+                    // set stock attributes for recommendation tooltip
+                    if (typeof item.in_stock !== 'undefined' && item.in_stock !== null) node.setAttribute('data-in-stock', String(item.in_stock));
+                    if (typeof item.low_stock !== 'undefined' && item.low_stock !== null) node.setAttribute('data-low-stock', String(item.low_stock));
+                } else if (item.type === 'variant' && item.variant_id) {
+                    node.setAttribute('data-variant-id', item.variant_id);
+                    node.setAttribute('data-product-id', item.product_id);
+                    // set stock attributes for recommendation tooltip (variants)
+                    if (typeof item.variant_in_stock !== 'undefined' && item.variant_in_stock !== null) node.setAttribute('data-in-stock', String(item.variant_in_stock));
+                    if (typeof item.variant_low_stock !== 'undefined' && item.variant_low_stock !== null) node.setAttribute('data-low-stock', String(item.variant_low_stock));
+                }
+
+                // Track toggle reflects product-level tracking and toggles visibility when changed
+                if (trackToggle) {
+                    trackToggle.checked = trackingOn;
+                    trackToggle.setAttribute('aria-checked', trackingOn ? 'true' : 'false');
+                    trackToggle.addEventListener('change', function() {
+                        const on = !!this.checked;
+                        // Show/hide columns
+                        if (instockCol) instockCol.style.display = on ? '' : 'none';
+                        if (statusCol) statusCol.style.display = on ? '' : 'none';
+                        if (addCol) addCol.style.display = on ? '' : 'none';
+
+                        // Update values when turned on
+                            if (on) {
+                                // Show numeric value when present; show em dash when missing (null/undefined/empty)
+                                const rawInStock = item.type === 'product' ? item.in_stock : item.variant_in_stock;
+                                const instockDisplay = (rawInStock === null || typeof rawInStock === 'undefined' || rawInStock === '') ? '—' : String(rawInStock);
+                                if (instockEl) instockEl.textContent = instockDisplay;
+
+                                // If there's no in-stock data, show em dash for status as well
+                                let statusTextNow = '—';
+                                if (!(rawInStock === null || typeof rawInStock === 'undefined' || rawInStock === '')) {
+                                    const inStockNumNow = parseFloat(rawInStock || 0);
+                                    statusTextNow = 'With stocks';
+                                    if (isNaN(inStockNumNow) || inStockNumNow <= 0) statusTextNow = 'Out of stock';
+                                    else if (item.type === 'product' ? (item.low_stock && item.low_stock !== '' && inStockNumNow <= parseFloat(item.low_stock)) : (item.variant_low_stock && item.variant_low_stock !== '' && inStockNumNow <= parseFloat(item.variant_low_stock))) statusTextNow = 'Low stock';
+                                }
+                                if (statusEl) statusEl.textContent = statusTextNow;
+                            } else {
+                                if (instockEl) instockEl.textContent = '';
+                                if (statusEl) statusEl.textContent = '';
+                            }
+
+                        this.setAttribute('aria-checked', on ? 'true' : 'false');
+
+                        // Persist the product-level tracking change to server (optimistic)
+                        try {
+                            const productId = node.getAttribute('data-product-id');
+                            if (productId) {
+                                fetch('api.php', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'update_track', product_id: parseInt(productId), value: on ? 1 : 0 })
+                                }).then(res => res.json())
+                                  .then(resp => {
+                                      if (!resp || !resp.success) {
+                                          // revert toggle if API failed
+                                          trackToggle.checked = !on;
+                                          trackToggle.setAttribute('aria-checked', (!on) ? 'true' : 'false');
+                                          showErrorPopup('Failed to update track stock on server');
+                                      }
+                                  }).catch(err => {
+                                      trackToggle.checked = !on;
+                                      trackToggle.setAttribute('aria-checked', (!on) ? 'true' : 'false');
+                                      console.error('update_track error', err);
+                                      showErrorPopup('Failed to update track stock');
+                                  });
+                            }
+                        } catch (e) {
+                            console.error('persist track change error', e);
+                        }
+                    });
+                }
+
+                // Populate in-stock and status only when tracking is on; otherwise leave blank
+                if (trackingOn) {
+                    const rawInStock = item.type === 'product' ? item.in_stock : item.variant_in_stock;
+                    const instockDisplay = (rawInStock === null || typeof rawInStock === 'undefined' || rawInStock === '') ? '—' : String(rawInStock);
+                    if (instockEl) instockEl.textContent = instockDisplay;
+                    let statusText = '—';
+                    if (!(rawInStock === null || typeof rawInStock === 'undefined' || rawInStock === '')) {
+                        const inStockNum = parseFloat(rawInStock || 0);
+                        statusText = 'With stocks';
+                        if (isNaN(inStockNum) || inStockNum <= 0) statusText = 'Out of stock';
+                        else if (item.type === 'product' ? (item.low_stock && item.low_stock !== '' && inStockNum <= parseFloat(item.low_stock)) : (item.variant_low_stock && item.variant_low_stock !== '' && inStockNum <= parseFloat(item.variant_low_stock))) statusText = 'Low stock';
+                    }
+                    if (statusEl) statusEl.textContent = statusText;
+                } else {
+                    if (instockEl) instockEl.textContent = '';
+                    if (statusEl) statusEl.textContent = '';
+                }
+
+                // Hide columns initially if tracking is off
+                if (!trackingOn) {
+                    if (instockCol) instockCol.style.display = 'none';
+                    if (statusCol) statusCol.style.display = 'none';
+                    if (addCol) addCol.style.display = 'none';
+                }
+
+                // Wire add button
+                if (addBtn) {
+                    addBtn.addEventListener('click', function() {
+                        const rawQty = addQty ? addQty.value.trim() : '';
+                        const qty = rawQty === '' ? 0 : parseFloat(rawQty);
+                        if (!qty || isNaN(qty) || qty <= 0) {
+                            showErrorPopup('Please enter a quantity greater than 0');
+                            return;
+                        }
+
+                        // Read unit suffix from any nearby unit-value if present (support main product inStock input unit sync)
+                        let unit = '';
+                        try {
+                            const anyUnit = node.querySelector('.unit-value');
+                            if (anyUnit) unit = anyUnit.textContent.trim();
+                        } catch (e) {}
+
+                        // Floating ghost number immediately (optimistic) near the in-stock cell
+                        try {
+                            if (instockEl) {
+                                const ghost = document.createElement('div');
+                                ghost.className = 'ghost-add-number';
+                                ghost.textContent = `+${qty}${(unit && unit !== '- -') ? ' ' + unit : ''}`;
+                                node.appendChild(ghost);
+                                // compute position after it's in DOM
+                                const instRect = instockEl.getBoundingClientRect();
+                                const rowRect = node.getBoundingClientRect();
+                                const ghostRect = ghost.getBoundingClientRect();
+                                // Nudge left a bit so the ghost aligns over the numeric text
+                                const centerX = instRect.left - rowRect.left + (instRect.width / 2) - (ghostRect.width / 2) - 6;
+                                const centerY = instRect.top - rowRect.top + (instRect.height / 2) - (ghostRect.height / 2);
+                                ghost.style.left = (centerX > 4 ? centerX : 4) + 'px';
+                                ghost.style.top = (centerY > 2 ? centerY : 2) + 'px';
+                                requestAnimationFrame(() => {
+                                    ghost.style.animation = 'ghost-float 900ms ease-out forwards';
+                                });
+                                setTimeout(() => { try { ghost.remove(); } catch(e){} }, 1000);
+                            }
+                        } catch (e) { console.error('ghost immediate error', e); }
+
+                        // Prepare optimistic UI: disable controls
+                        addBtn.disabled = true;
+                        addQty.disabled = true;
+
+                        // Call API to add stock (product or variant)
+                        const payload = { action: 'add_stock', product_id: node.getAttribute('data-product-id') ? parseInt(node.getAttribute('data-product-id')) : 0, qty: qty };
+                        if (node.getAttribute('data-variant-id')) payload.variant_id = parseInt(node.getAttribute('data-variant-id'));
+                        if (unit && unit !== '- -') payload.unit = unit;
+
+                        fetch('api.php', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        }).then(res => res.json())
+                        .then(resp => {
+                            if (!resp || !resp.success) throw new Error(resp && resp.error ? resp.error : 'Unknown error');
+
+                            // Update UI with new in-stock and status from server
+                            const newInStock = resp.new_in_stock || resp.new_in_stock === '' ? resp.new_in_stock : null;
+                            const newStatus = resp.status || '';
+                            if (instockEl) instockEl.textContent = newInStock !== null ? newInStock : '—';
+                            if (statusEl) statusEl.textContent = newStatus || '—';
+
+                            // Play added animation
+                            node.classList.add('added');
+                            setTimeout(() => node.classList.remove('added'), 900);
+
+                            // Show success area by replacing the row content after the added animation completes
+                            const successCol = node.querySelector('.br-col-success');
+                            const successMsg = node.querySelector('.br-success-message');
+                            const successAgainBtn = node.querySelector('.br-add-again');
+
+                            // Wait for the visual 'added' animation to finish before replacing content
+                            setTimeout(() => {
+                                try {
+                                    // Hide all data columns inside the row (except success col)
+                                    const cols = node.querySelectorAll('.br-col');
+                                    cols.forEach(col => {
+                                        if (!col.classList.contains('br-col-success')) {
+                                            col.style.display = 'none';
+                                        }
+                                    });
+
+                                    // Populate success message with full details per requested format
+                                    const nameText = nameEl ? nameEl.textContent.trim() : '';
+                                    const categoryText = catEl ? catEl.textContent.trim() : '';
+                                    // Determine unit: prefer explicit unit, otherwise try to extract from server new_in_stock
+                                    let displayUnit = (unit && unit !== '- -') ? unit : '';
+                                    const totalTextRaw = (newInStock !== null) ? String(newInStock) : '';
+                                    if (!displayUnit && totalTextRaw) {
+                                        // extract anything after the number as unit (e.g., '7611 pcs' -> 'pcs')
+                                        const m = totalTextRaw.match(/^\s*[0-9]+(?:\.[0-9]+)?\s*(.*)$/);
+                                        if (m && m[1]) displayUnit = m[1].trim();
+                                    }
+                                    // Format added qty with unit directly beside number (no space)
+                                    const addedQtyDisplay = `${qty}${displayUnit || ''}`;
+                                    // Normalize total (remove any space between number and unit for compact display)
+                                    const totalText = totalTextRaw || '';
+                                    const totalDisplay = totalText ? totalText.replace(/\s+/g, '') : '—';
+                                    // Normalize status to requested phrasing
+                                    let statusTextNow = (newStatus || '').trim();
+                                    if (!statusTextNow) statusTextNow = '—';
+                                    else if (statusTextNow.toLowerCase().includes('with')) statusTextNow = 'With stock';
+                                    else if (statusTextNow.toLowerCase().includes('low')) statusTextNow = 'Low stock';
+                                    else if (statusTextNow.toLowerCase().includes('out')) statusTextNow = 'Out of stock';
+
+                                    if (successMsg) {
+                                        successMsg.textContent = `You've successfully added ${addedQtyDisplay} of ${nameText || ''} under ${categoryText || 'No Category'} with a total of ${totalDisplay} (${statusTextNow})`;
+                                    }
+
+                                        // remember added qty and unit on the row for undo
+                                        try { node._lastAdded = { qty: qty, unit: displayUnit || unit || '' }; } catch (e) {}
+
+                                        if (successCol) successCol.style.display = '';
+
+                                            // (ghost already shown immediately on click)
+
+                                    // Wire Add again: restore original columns and input
+                                    if (successAgainBtn) {
+                                        successAgainBtn.onclick = function() {
+                                            const cols = node.querySelectorAll('.br-col');
+                                            cols.forEach(col => {
+                                                if (!col.classList.contains('br-col-success')) {
+                                                    if (col.classList.contains('br-col-instock') || col.classList.contains('br-col-status') || col.classList.contains('br-col-add')) {
+                                                        if (trackingOn) col.style.display = '';
+                                                        else col.style.display = 'none';
+                                                    } else {
+                                                        col.style.display = '';
+                                                    }
+                                                }
+                                            });
+
+                                            if (successCol) successCol.style.display = 'none';
+                                            if (addQty) { addQty.style.display = ''; addQty.disabled = false; addQty.value = ''; addQty.focus(); }
+                                            if (addBtn) { addBtn.style.display = ''; addBtn.disabled = false; }
+                                        };
+                                    }
+
+                                        // Wire Undo button
+                                        const undoBtn = node.querySelector('.br-undo');
+                                        if (undoBtn) {
+                                            undoBtn.onclick = function() {
+                                                // read last added
+                                    console.log('br-undo clicked for node', node && node.getAttribute ? node.getAttribute('data-product-id') : node, 'lastAdded:', node._lastAdded);
+                                    // read last added
+                                    const last = node._lastAdded || { qty: qty, unit: displayUnit || unit || '' };
+                                    // give quick UI feedback
+                                    const prevText = undoBtn.textContent;
+                                    try { undoBtn.textContent = 'Undoing…'; } catch (e) {}
+                                                const undoQty = -Math.abs(parseFloat(last.qty) || -qty);
+                                                // call adjust_stock to subtract
+                                                const adjustPayload = { action: 'adjust_stock', product_id: parseInt(node.getAttribute('data-product-id') || 0), qty: undoQty };
+                                                if (node.getAttribute('data-variant-id')) adjustPayload.variant_id = parseInt(node.getAttribute('data-variant-id'));
+                                                if (last.unit && last.unit !== '- -') adjustPayload.unit = last.unit;
+                                                undoBtn.disabled = true;
+                                                fetch('api.php', {
+                                                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(adjustPayload)
+                                                }).then(r => r.json()).then(res => {
+                                                    if (!res || !res.success) throw new Error(res && res.error ? res.error : 'Undo failed');
+                                                    // update instock/status text
+                                                    if (instockEl) instockEl.textContent = res.new_in_stock || '—';
+                                                    if (statusEl) statusEl.textContent = res.status || '—';
+                                                    // restore row UI (same as Add again)
+                                                    const cols = node.querySelectorAll('.br-col');
+                                                    cols.forEach(col => {
+                                                        if (!col.classList.contains('br-col-success')) {
+                                                            if (col.classList.contains('br-col-instock') || col.classList.contains('br-col-status') || col.classList.contains('br-col-add')) {
+                                                                if (trackingOn) col.style.display = '';
+                                                                else col.style.display = 'none';
+                                                            } else {
+                                                                col.style.display = '';
+                                                            }
+                                                        }
+                                                    });
+                                                    if (successCol) successCol.style.display = 'none';
+                                                    if (addQty) { addQty.style.display = ''; addQty.disabled = false; addQty.value = ''; }
+                                                    if (addBtn) { addBtn.style.display = ''; addBtn.disabled = false; }
+                                                    console.log('adjust_stock response', res);
+                                                    // restore undo button state/text in case it remains
+                                                    try { undoBtn.disabled = false; undoBtn.textContent = prevText; } catch (e) {}
+                                                }).catch(err => {
+                                                    console.error('undo error', err);
+                                                    showErrorPopup('Failed to undo: ' + (err.message || err));
+                                                    try { undoBtn.disabled = false; undoBtn.textContent = prevText; } catch (e) {}
+                                                });
+                                            };
+                                        }
+                                } catch (e) {
+                                    console.error('replace row content error', e);
+                                }
+                            }, 750); // slightly longer than animation so the jump finishes first
+                        }).catch(err => {
+                            console.error('add_stock error', err);
+                            showErrorPopup('Failed to add stock: ' + (err.message || err));
+                            // Re-enable inputs
+                            addBtn.disabled = false;
+                            addQty.disabled = false;
+                        });
+                    });
+                }
+
+                // Recommendation tooltip: attach focus/blur handlers when the row is rendered
+                if (addQty) {
+                    addQty.addEventListener('focus', function() {
+                        try {
+                            const curText = instockEl ? instockEl.textContent.trim() : (node.getAttribute('data-in-stock') || '');
+                            const lowText = node.getAttribute('data-low-stock') || '';
+                            const parseNum = s => { const m = String(s || '').match(/^\s*([0-9]+(?:\.[0-9]+)?)/); return m ? parseFloat(m[1]) : null; };
+                            const curNum = parseNum(curText);
+                            const lowNum = parseNum(lowText);
+                            if (lowNum !== null && (curNum === null || curNum <= lowNum)) {
+                                const need = Math.max(1, Math.ceil((lowNum - (curNum || 0)) + 1));
+                                let msg = node.querySelector('.br-recommend-msg');
+                                if (!msg) {
+                                    msg = document.createElement('div');
+                                    msg.className = 'br-recommend-msg';
+                                    msg.setAttribute('role','status');
+                                    msg.style.visibility = 'hidden';
+                                    node.appendChild(msg);
+                                }
+                                msg.textContent = `We recommend you adding ${need} or more to exceed low stock`;
+
+                                const rowRect = node.getBoundingClientRect();
+                                const inputRect = addQty.getBoundingClientRect();
+                                const inner = node.closest('.barcode-results-inner') || node.parentElement;
+                                const innerRect = inner ? inner.getBoundingClientRect() : rowRect;
+
+                                msg.style.display = '';
+                                const ttWidth = Math.min((msg.offsetWidth || 160), Math.max(80, innerRect.width - 12));
+                                const ttHeight = msg.offsetHeight || 28;
+                                let left = (inputRect.right - rowRect.left) - ttWidth;
+                                let top = (inputRect.top - rowRect.top) - ttHeight - 6;
+                                const minLeft = 6;
+                                const maxLeft = Math.max(6, rowRect.width - ttWidth - 6);
+                                if (left < minLeft) left = minLeft;
+                                if (left > maxLeft) left = maxLeft;
+                                const minTop = -ttHeight - 6;
+                                if (top < minTop) top = minTop;
+                                msg.style.left = Math.round(left) + 'px';
+                                msg.style.top = Math.round(top) + 'px';
+                                msg.style.visibility = 'visible';
+                            }
+                        } catch (e) { console.error('recommend focus error', e); }
+                    });
+                    addQty.addEventListener('blur', function() {
+                        try {
+                            const msg = node.querySelector('.br-recommend-msg');
+                            if (msg) msg.style.display = 'none';
+                        } catch (e) {}
+                    });
+                    // Hide tooltip as soon as the user types
+                    addQty.addEventListener('input', function() {
+                        try {
+                            const msg = node.querySelector('.br-recommend-msg');
+                            if (msg) msg.style.display = 'none';
+                        } catch (e) {}
+                    });
+                }
+
+                mount.appendChild(node);
+            });
+
+            // Add a CTA to create new item with same barcode below results (only for pure barcode searches)
+            if (typeof searchType === 'undefined' || searchType === 'barcode') {
+                const cta = document.createElement('div');
+                cta.style.marginTop = '12px';
+                cta.style.textAlign = 'center';
+                const createBtn = document.createElement('button');
+                createBtn.type = 'button';
+                createBtn.className = 'btn';
+                createBtn.textContent = 'Create new item with same barcode';
+                createBtn.addEventListener('click', function() {
+                    // Hide/clear barcode results panel before opening Add Items
+                    const brPanel = document.getElementById('barcodeResultsTabPanel');
+                    const brMount = document.getElementById('barcodeResultsMount');
+                    if (brMount) brMount.innerHTML = '';
+                    if (brPanel) brPanel.style.display = 'none';
+
+                    // Open add items prefilling barcode and ensure listeners are attached
+                    showTab('addItems');
+                    try { window.ensureAttachAddItems(); } catch (e) { console.error('ensureAttachAddItems failed', e); }
+                    // populate inline form
+                    setTimeout(() => {
+                        const inlineBarcode = document.getElementById('inlineItemBarcode');
+                        const inlineName = document.getElementById('inlineItemName');
+                        if (inlineBarcode) inlineBarcode.value = searchedBarcode || '';
+                        if (inlineName) inlineName.focus();
+                    }, 120);
+                });
+                cta.appendChild(createBtn);
+                mount.appendChild(cta);
+            }
+        }, 120);
     }
     
     // Go back from form to tabs
@@ -1616,7 +2811,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     
     if (nextBtn) {
-        nextBtn.onclick = handleNext;
+        // Route Next to manual or normal handler depending on current mode/tab
+        nextBtn.onclick = function(e) {
+            // If manual tab is active or manual mode flag is set, use manual handler
+            if (typeof isManualMode !== 'undefined' && isManualMode) {
+                handleManualNext(e);
+            } else if (typeof currentTab !== 'undefined' && currentTab === 'manual') {
+                handleManualNext(e);
+            } else {
+                handleNext(e);
+            }
+        };
     }
     
 
@@ -1648,7 +2853,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (trackStockCheckbox && stockSection) {
         trackStockCheckbox.addEventListener('change', function() {
             if (this.checked) {
-                stockSection.style.display = 'block';d
+                stockSection.style.display = 'block';
             } else {
                 stockSection.style.display = 'none';
             }
@@ -1754,6 +2959,7 @@ function showTab(tabName, transition = true) {
     const scanPanel = document.getElementById('scanTabPanel');
     const manualPanel = document.getElementById('manualTabPanel');
     const addItemsPanel = document.getElementById('addItemsTabPanel');
+    const barcodePanel = document.getElementById('barcodeResultsTabPanel');
     // Hide all panels, but if opening addItems, animate previous panel out first, then animate addItems in
     if (tabName === 'addItems') {
         const prevPanel = { scan: scanPanel, manual: manualPanel }[previousTab];
@@ -1778,6 +2984,21 @@ function showTab(tabName, transition = true) {
             // Start transition
             addItemsPanel.classList.add('slide-in');
             addItemsPanel.classList.add('active');
+            // Ensure back and cancel buttons are clickable (attach handlers here to guarantee wiring)
+            try {
+                const backBtn = addItemsPanel.querySelector('#backInlineAddItems');
+                const cancelBtn = addItemsPanel.querySelector('.cancel-secondary');
+                if (backBtn) {
+                    backBtn.style.pointerEvents = 'auto';
+                    backBtn.style.zIndex = 9999;
+                    backBtn.onclick = function(e) { e.preventDefault(); showTab(previousTab); };
+                }
+                if (cancelBtn) {
+                    cancelBtn.style.pointerEvents = 'auto';
+                    cancelBtn.style.zIndex = 9999;
+                    cancelBtn.onclick = function(e) { e.preventDefault(); showTab(previousTab); };
+                }
+            } catch (e) { console.error('attach back handlers error', e); }
             if (prevPanel) {
                 prevPanel.classList.add('slide-out-left');
                 prevPanel.classList.remove('slide-in');
@@ -1805,6 +3026,9 @@ function showTab(tabName, transition = true) {
         if (modalTabs) modalTabs.style.display = 'none';
         if (scanTabBtn) scanTabBtn.classList.remove('active');
         if (manualTabBtn) manualTabBtn.classList.remove('active');
+        // Also add hide-tabs class to modal-content for CSS-driven hiding
+        const modalContentElem = document.querySelector('.modal-content.scanner-modal');
+        if (modalContentElem) modalContentElem.classList.add('hide-tabs');
     } else if (currentTab === 'addItems') {
         // Reverse transition: going back from Add Items to scan/manual
         const prevPanel = { scan: scanPanel, manual: manualPanel }[tabName];
@@ -1847,6 +3071,9 @@ function showTab(tabName, transition = true) {
                 if (modalTabs) {
                     modalTabs.classList.remove('slide-in-left');
                 }
+                // Remove hide-tabs class when returning from addItems
+                const modalContentElem = document.querySelector('.modal-content.scanner-modal');
+                if (modalContentElem) modalContentElem.classList.remove('hide-tabs');
             }, 250);
         }
         // Show tab buttons
@@ -1855,9 +3082,68 @@ function showTab(tabName, transition = true) {
         if (modalTabs) modalTabs.style.display = 'flex';
         if (scanTabBtn) scanTabBtn.classList.toggle('active', tabName === 'scan');
         if (manualTabBtn) manualTabBtn.classList.toggle('active', tabName === 'manual');
+    } else if (currentTab === 'barcodeResults') {
+        // Reverse transition: leaving barcodeResults back to scan/manual with animation
+        const prevPanel = { scan: scanPanel, manual: manualPanel }[tabName];
+        const modalContent = document.querySelector('.modal-content.scanner-modal');
+        const modalTabs = document.querySelector('.modal-tabs');
+        if (barcodePanel && prevPanel) {
+            // Prepare previous panel for sizing
+            prevPanel.style.display = 'block';
+            prevPanel.style.width = 'auto';
+            const newHeight = prevPanel.offsetHeight;
+            const newWidth = prevPanel.scrollWidth;
+            prevPanel.style.width = '';
+            if (modalContent) {
+                modalContent.style.height = newHeight + 'px';
+                modalContent.style.width = newWidth + 'px';
+            }
+
+            // Animate barcodeResults out and previous panel in
+            barcodePanel.classList.add('slide-out-right');
+            barcodePanel.classList.add('active');
+            prevPanel.classList.add('slide-in-left');
+            prevPanel.classList.add('active');
+            prevPanel.style.display = 'block';
+
+            // Animate tab buttons back in
+            if (modalTabs) {
+                modalTabs.classList.add('slide-in-left');
+                modalTabs.classList.remove('slide-out-right');
+                modalTabs.style.display = 'flex';
+            }
+
+            setTimeout(() => {
+                // After animation, hide barcode panel and reset sizes/classes
+                barcodePanel.classList.remove('active', 'slide-out-right');
+                barcodePanel.style.display = 'none';
+                prevPanel.classList.remove('slide-in-left');
+                prevPanel.style.position = 'relative';
+                if (modalContent) {
+                    modalContent.style.height = '';
+                    modalContent.style.width = '';
+                }
+                if (modalTabs) modalTabs.classList.remove('slide-in-left');
+
+                // Remove hide-tabs class when returning from barcodeResults
+                const modalContentElem = document.querySelector('.modal-content.scanner-modal');
+                if (modalContentElem) modalContentElem.classList.remove('hide-tabs');
+                // Clear header barcode value to avoid stale text when panel is closed
+                try {
+                    const headerSpan = document.getElementById('barcodeResultsHeaderValue');
+                    if (headerSpan) headerSpan.textContent = '';
+                } catch (e) { console.error('Failed to clear barcodeResults header', e); }
+            }, 250);
+        }
+        // Show tab buttons and set active state
+        var scanTabBtn = document.getElementById('scanTab');
+        var manualTabBtn = document.getElementById('manualTab');
+        if (modalTabs) modalTabs.style.display = 'flex';
+        if (scanTabBtn) scanTabBtn.classList.toggle('active', tabName === 'scan');
+        if (manualTabBtn) manualTabBtn.classList.toggle('active', tabName === 'manual');
     } else {
         // Hide all panels instantly
-        [scanPanel, manualPanel, addItemsPanel].forEach(panel => {
+        [scanPanel, manualPanel, addItemsPanel, barcodePanel].forEach(panel => {
             if (panel) {
                 panel.style.display = 'none';
                 panel.classList.remove('active', 'slide-in', 'slide-out-left');
@@ -1875,7 +3161,8 @@ function showTab(tabName, transition = true) {
         const activePanel = {
             scan: scanPanel,
             manual: manualPanel,
-            addItems: addItemsPanel
+            addItems: addItemsPanel,
+            barcodeResults: barcodePanel
         }[tabName];
         if (activePanel) {
             activePanel.style.display = 'block';
@@ -1887,7 +3174,7 @@ function showTab(tabName, transition = true) {
     var modalTabs = document.querySelector('.modal-tabs');
     var scanTabBtn = document.getElementById('scanTab');
     var manualTabBtn = document.getElementById('manualTab');
-    if (tabName === 'addItems') {
+    if (tabName === 'addItems' || tabName === 'barcodeResults') {
         if (modalTabs) modalTabs.style.display = 'none';
         if (scanTabBtn) scanTabBtn.classList.remove('active');
         if (manualTabBtn) manualTabBtn.classList.remove('active');
@@ -1901,20 +3188,31 @@ function showTab(tabName, transition = true) {
         const activePanel = {
             scan: scanPanel,
             manual: manualPanel,
-            addItems: addItemsPanel
+            addItems: addItemsPanel,
+            barcodeResults: barcodePanel
         }[tabName];
         if (activePanel) {
             activePanel.style.display = 'flex';
             activePanel.classList.add('active');
             // Only animate when opening addItems
-            if (tabName === 'addItems') {
+            if (tabName === 'addItems' || tabName === 'barcodeResults') {
                 activePanel.classList.add('slide-in');
                 setTimeout(() => activePanel.classList.remove('slide-in'), 400);
             }
         }
     }
+    // Toggle hide-tabs class for barcodeResults (in addition to addItems handled earlier)
+    const modalContentElem = document.querySelector('.modal-content.scanner-modal');
+    if (modalContentElem) {
+        if (tabName === 'barcodeResults') {
+            modalContentElem.classList.add('hide-tabs');
+        } else if (modalContentElem.classList.contains('hide-tabs') && tabName !== 'addItems') {
+            // remove only when not in addItems as that branch handles removal
+            modalContentElem.classList.remove('hide-tabs');
+        }
+    }
     // Track previous tab for back/cancel
-    if (tabName !== 'addItems') {
+    if (tabName !== 'addItems' && tabName !== 'barcodeResults') {
         previousTab = tabName;
     }
     currentTab = tabName;
@@ -1937,6 +3235,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // Back button
         const backBtn = addItemsPanel.querySelector('#backInlineAddItems');
         if (backBtn) backBtn.onclick = () => showTab(previousTab);
+    // Back button from barcode results (global)
+    const backBarcodeBtn = document.getElementById('backFromBarcodeResults');
+    if (backBarcodeBtn) backBarcodeBtn.onclick = () => showTab(previousTab);
         // Cancel button
         const cancelBtn = addItemsPanel.querySelector('.cancel-secondary');
         if (cancelBtn) cancelBtn.onclick = () => showTab(previousTab);
@@ -1949,24 +3250,29 @@ document.addEventListener('DOMContentLoaded', function () {
                 form.requestSubmit();
             };
         }
-        // Form submit
-        if (form) {
-            form.onsubmit = function(e) {
-                e.preventDefault();
-                // Fetch and set next SKU directly after successful add
-                setTimeout(function() {
-                    fetch('get_next_sku.php')
-                        .then(response => response.json())
-                        .then(data => {
-                            var skuInput = document.querySelector('#inlineAddItemsForm input[name="sku"], #inlineAddItemsForm input#inlineItemSKU');
-                            if (skuInput && data && data.next_sku) {
-                                skuInput.value = data.next_sku;
-                            }
-                        });
-                }, 350); // Wait for tab transition and DOM
-                return false;
-            };
+        // Form submit: let the modal's own submit handler (defined in popupmodal.php)
+        // control success vs error behavior. We only wire the submit button to
+        // requestSubmit so the modal script can handle server responses and
+        // decide when to close or show errors.
+        // (No form.onsubmit optimistic handler here.)
+    }
+    // Expose a safe helper so other code paths can request attaching listeners
+    window.ensureAttachAddItems = function() {
+        try {
+            attachAddItemsPanelListeners();
+        } catch (e) {
+            console.error('ensureAttachAddItems error', e);
         }
+    };
+    // Ensure the back button on the barcode results always returns to previous tab
+    const backBarcodeBtnGlobal = document.getElementById('backFromBarcodeResults');
+    if (backBarcodeBtnGlobal) {
+        backBarcodeBtnGlobal.addEventListener('click', function(e) {
+            e.preventDefault();
+            // If previousTab is not set, fallback to 'scan'
+            const target = (typeof previousTab !== 'undefined' && previousTab) ? previousTab : 'scan';
+            showTab(target);
+        });
     }
     // Tab switching
     if (scanTabBtn) scanTabBtn.onclick = () => showTab('scan', false);
@@ -1974,11 +3280,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Add Items triggers
     if (skipScannerBtn) skipScannerBtn.onclick = () => {
         showTab('addItems', true);
-        attachAddItemsPanelListeners();
+        window.ensureAttachAddItems();
     };
     if (skipManualEntryBtn) skipManualEntryBtn.onclick = () => {
         showTab('addItems', true);
-        attachAddItemsPanelListeners();
+        window.ensureAttachAddItems();
     };
     // Initial tab
     showTab('scan', false);

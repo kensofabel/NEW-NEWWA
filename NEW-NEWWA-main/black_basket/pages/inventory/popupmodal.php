@@ -64,6 +64,146 @@
         #availablePOS:checked ~ label ~ #posToggleChevron {
           display: inline-block;
         }
+                /* When a panel takes over (Add Items or Barcode results), hide the top tab buttons */
+                .modal-content.hide-tabs .modal-tabs {
+                        display: none !important;
+                        pointer-events: none !important;
+                        opacity: 0 !important;
+                }
+                .barcode-results-container {
+                    width: 100%;
+                    display: flex;
+                    justify-content: center;
+                }
+                .barcode-results-inner {
+                    width:600px;
+                    /* allow absolute-positioned tooltips to escape row bounds */
+                    overflow: visible;
+                }
+                /* Recommendation tooltip shown above the input in barcode rows */
+                .br-recommend-msg {
+                    position: absolute;
+                    display: block;
+                    background: #222;
+                    color: #ffcc80;
+                    padding: 6px 8px;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+                    z-index: 9999; /* ensure on top */
+                    white-space: nowrap;
+                    pointer-events: none;
+                }
+                .barcode-results-header,
+                .barcode-result-row {
+                    display: grid;
+                    grid-template-columns: .8fr .6fr .5fr .7fr 1.2fr;
+                    gap: 8px;
+                    align-items: center;
+                    padding: 10px 10px;
+                    border-radius: 8px;
+                    color: #dbdbdb;
+                    background: transparent;
+                }
+                .barcode-results-header {
+                    background: #1f1f1f;
+                    border: 1px solid #333;
+                    margin-bottom: 10px;
+                    font-weight: 600;
+                    color: #e6e6e6;
+                }
+                .barcode-result-row {
+                    padding: 10px 10px 8px 10px;
+                    background: #171717;
+                    border: 1px solid #262626;
+                    margin-bottom: 8px;
+                    position: relative; /* allow absolute children for ghost numbers */
+                }
+                .barcode-result-row
+                .barcode-results-header .br-col-main {
+                    color: #dbdbdb;
+                    font-size: 14px;
+                }
+                .barcode-result-row .small-label,
+                .barcode-results-header .header {
+                    color: #9e9e9e;
+                    font-size: 12px;
+                }
+                /* Make category match the track-stock label styling (size + color) */
+                .barcode-result-row .br-category {
+                    color: #9e9e9e;
+                    font-size: 12px;
+                    line-height: 1.1;
+                }
+                .br-name {
+                    color: #dbdbdb;
+                    font-size: 18px;
+                    line-height: 1.0;      /* compact vertical spacing */
+                    margin: 0;
+                    padding: 0;
+                    max-height: 20px;      /* keep visual height consistent */
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .barcode-result-row .br-name { margin-bottom: 8px; }
+                .barcode-result-row .br-col {
+                    gap: 0  ;              /* space between category and name */
+                }
+                .barcode-result-row .add-input-row input.br-add-qty {
+                    min-width: 40px;
+                    max-width: 80px;
+                }
+                .br-col { display: flex; flex-direction: column; gap: 4px; }
+                @media (max-width: 720px) {
+                    .barcode-results-header,
+                    .barcode-result-row {
+                        grid-template-columns: 1fr;
+                    }
+                }
+                /* Make the toggle smaller in barcode result rows to match a compact layout */
+                .barcode-result-row .switch {
+                    width: 60px !important;
+                    height: 40px !important;
+                    bottom: -2px;
+                }
+                .barcode-result-row .slider {
+                    top: 3px; bottom: 3px; border-radius: 8px; border-width: 1px; height: 30px;
+                }
+                .barcode-result-row .slider:before {
+                    height: 22px !important; width: 22px !important; left: 3px; bottom: 3px;
+                }
+                .barcode-result-row .switch input:checked + .slider:before {
+                    transform: translateX(30px);
+                }
+                /* Make add-qty input background match header */
+                .barcode-result-row input.br-add-qty {
+                    background: #1f1f1f;
+                    border: 1px solid #333;
+                    color: #e6e6e6;
+                    padding: 8px 8px;
+                    border-radius: 6px;
+                }
+                /* WebKit number input spinner styling */
+                .barcode-result-row input[type=number]::-webkit-outer-spin-button,
+                .barcode-result-row input[type=number]::-webkit-inner-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+                /* Provide custom small arrow buttons (unit arrows) matching header */
+                .barcode-result-row .unit-arrows .unit-arrow {
+                    background: #1f1f1f;
+                    border: 1px solid #333;
+                    color: #e6e6e6;
+                    width: 28px;
+                    height: 20px;
+                    padding: 0;
+                    border-radius: 4px;
+                    font-size: 11px;
+                }
+                .barcode-result-row .unit-arrows .unit-arrow:hover {
+                    background: #262626;
+                }
     </style>
 </head>
 <!-- Scanner/Manual/Add Items Modal with Tab Panels -->
@@ -87,6 +227,18 @@
                     <div class="skip-section">
                         <button type="button" class="skip-btn" id="skipScanner">Skip for now</button>
                     </div>
+                </div>
+            </div>
+            <!-- Mismatch choice popup (hidden by default) -->
+            <div id="mismatchChoiceModal" style="display:none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #121212; border: 1px solid #333; padding: 18px; border-radius: 10px; z-index: 120; width: 420px; box-shadow: 0 12px 30px rgba(0,0,0,0.6);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <div id="mismatchTitle" style="font-weight:700; color:#fff;">Inputs doesnt match</div>
+                    <button type="button" id="mismatchCloseBtn" style="background:none; border:none; color:#fff; font-size:18px; cursor:pointer;">&times;</button>
+                </div>
+                <div id="mismatchBody" style="color:#ddd; margin-bottom:12px;">Would you like to:</div>
+                <div style="display:flex; gap:10px; justify-content:center;">
+                    <button type="button" id="mismatchSkuBtn" class="btn" style="background:#333; color:#fff; padding:8px 12px; border-radius:6px;">Show SKU match</button>
+                    <button type="button" id="mismatchBarcodeBtn" class="btn" style="background:#ff9800; color:#171717; padding:8px 12px; border-radius:6px;">Show Barcode match</button>
                 </div>
             </div>
             <!-- Manual Tab Panel -->
@@ -128,11 +280,12 @@
                             <div class="form-group name-autocomplete" style="flex:3; position: relative;">
                                 <label for="inlineItemName">Name</label>
                                 <input type="text" id="inlineItemName" name="itemName" class="input-box" autocomplete="off">
+                                <div id="nameErrorMsg" style="color:#dc3545; font-size:14px; margin-top:4px; display:none;"></div>
                                 <div class="name-dropdown" id="nameDropdown"></div>
                             </div>
                             <div class="form-group category-autocomplete" style="flex:2; position: relative;">
                                 <label for="inlineItemCategory">Category</label>
-                                <input type="text" id="inlineItemCategory" name="itemCategory" class="input-box" autocomplete="off" placeholder="Select or create">
+                                <input type="text" id="inlineItemCategory" name="itemCategory" class="input-box" autocomplete="off" placeholder="Select or create" value = "No Category" required>
                                 <div class="category-dropdown" id="categoryDropdown"></div>
                             </div>
                         </div>
@@ -374,6 +527,119 @@
                     </div>
                 </div>
             </div>
+            <!-- Barcode Results Tab Panel (separate from Add Items) -->
+            <div id="barcodeResultsTabPanel" class="tab-panel" style="display:none;">
+                <div class="modal-header">
+                        <h2 class="modal-title"><span id="barcodeResultsHeaderPrefix">Items using barcode:</span> <span id="barcodeResultsHeaderValue" style="color:#ff9800; font-weight:600;"></span></h2>
+                        <button type="button" class="inline-back" id="backFromBarcodeResults" aria-label="Back" title="Back">&larr;</button>
+                    </div>
+                <div class="modal-divider"></div>
+                <div class="modal-body">
+                    <div class="barcode-results-container">
+                        <div class="barcode-results-inner">
+                            <!-- Header row: aligns with result rows -->
+                            <div class="barcode-results-header" role="row">
+                                <div class="br-col br-col-main header">Category / Item</div>
+                                <div class="br-col br-col-track header">Track stock</div>
+                                <div class="br-col br-col-instock header">In stock</div>
+                                <div class="br-col br-col-status header">Status</div>
+                                <div class="br-col br-col-add header">No. of stock</div>
+                            </div>
+                            <div id="barcodeResultsMount" aria-live="polite"></div>
+                        </div>
+                    </div>
+                    <!-- Template row: kept in DOM as fallback for JS cloning -->
+                    <template id="barcodeResultRowTemplateStandalone">
+                        <div class="barcode-result-row" role="group" aria-label="Barcode result">
+                            <div class="br-col br-col-main">
+                                <div class="br-category"></div>
+                                <div class="br-name"></div>
+                            </div>
+                            <div class="br-col br-col-track">
+                                <div class="track-toggle">
+                                    <label class="switch">
+                                        <input type="checkbox" class="br-track-toggle" aria-label="Track stock">
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="br-col br-col-instock">
+                                <div class="br-instock-value">0</div>
+                            </div>
+                            <div class="br-col br-col-status">
+                                <div class="br-status">With stocks</div>
+                            </div>
+                            <div class="br-col br-col-add">
+                                <div class="add-input-row">
+                                    <input type="number" class="br-add-qty" min="0" step="1" aria-label="No of stock" value="1"/>
+                                    <button class="br-add-btn btn" type="button">Add stock</button>
+                                </div>
+                            </div>
+                            <!-- Success area (hidden by default) -->
+                            <div class="br-col br-col-success" style="display:none; grid-column: 1 / -1;">
+                                <div class="br-success-inner" style="display:flex; width:100%; gap:12px; align-items:center;">
+                                    <div class="br-success-message" aria-live="polite" style="flex:1;"></div>
+                                    <div class="br-success-undo" style="width:110px; text-align:center;">
+                                        <button type="button" class="br-undo btn" style="width:100%;">Undo</button>
+                                    </div>
+                                    <div class="br-success-addagain" style="width:110px; text-align:center;">
+                                        <button type="button" class="br-add-again btn" style="width:100%;">Add again</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <style>
+                        /* Small animation when stock is added */
+                        .barcode-result-row.added {
+                            animation: br-added 700ms ease-in-out;
+                            background: linear-gradient(90deg, rgba(76,175,80,0.06), transparent);
+                        }
+                        @keyframes br-added {
+                            0% { transform: translateY(0); box-shadow: none; }
+                            30% { transform: translateY(-6px); box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+                            100% { transform: translateY(0); box-shadow: none; }
+                        }
+                        .br-success-message {
+                            color: #4caf50;
+                            font-weight: 600;
+                            font-size: 14px;
+                        }
+                        /* Ensure the success column spans the whole row area */
+                        .br-col-success {
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: flex-start;
+                            padding-left: 6px;
+                            padding-right: 6px;
+                            width: 100%;
+                            box-sizing: border-box;
+                        }
+                        /* Floating ghost number when stock is added */
+                        .ghost-add-number {
+                            position: absolute;
+                            background: transparent;
+                            color: #66bb6a;
+                            font-weight: 700;
+                            font-size: 14px;
+                            pointer-events: none;
+                            text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+                            opacity: 1;
+                            z-index: 5;
+                            will-change: transform, opacity, left, top;
+                            white-space: nowrap;
+                        }
+                        @keyframes ghost-float {
+                            0% { transform: translateY(0) scale(1); opacity: 1; }
+                            60% { transform: translateY(-22px) scale(1.05); opacity: 0.9; }
+                            100% { transform: translateY(-46px) scale(1.0); opacity: 0; }
+                        }
+                        .br-success-actions .br-add-again { background: #ff9800; color: #171717; }
+                        .br-success-actions .br-add-again { background: #ff9800; color: #171717; }
+                    </style>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -427,10 +693,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (val) {
                     inStock = inStockUnit && inStockUnit !== '- -' ? val + ' ' + inStockUnit : val;
                 } else {
-                    inStock = '0';
+                    // If tracking is on but user left the field empty, send empty string (not zero)
+                    inStock = '';
                 }
             } else {
-                inStock = '0';
+                inStock = '';
             }
 
             var lowStockInput = document.getElementById('inlineLowStock');
@@ -483,11 +750,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             var stockInput = row.querySelector('input.variant-stock');
                             var stockUnit = stockInput && stockInput.parentElement.querySelector('.unit-value') ? stockInput.parentElement.querySelector('.unit-value').textContent.trim() : '';
                             var val = stockInput ? stockInput.value.trim() : '';
-                            if (val) {
-                                return stockUnit && stockUnit !== '- -' ? val + ' ' + stockUnit : val;
-                            } else {
-                                return '0';
-                            }
+                                if (val) {
+                                    return stockUnit && stockUnit !== '- -' ? val + ' ' + stockUnit : val;
+                                } else {
+                                    // Variant left empty -> send empty instead of '0'
+                                    return '';
+                                }
                         })(),
                         low_stock: (function() {
                             var lowStockInput = row.querySelector('input.variant-low-stock');
@@ -508,7 +776,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Debug: log all variant names before sending
                 console.log('Variant names:', variants.map(v => v.name));
             }
+                // Client-side validation: require main Name and SKU (show both errors if both empty)
+                var skuErrorMsg = document.getElementById('skuErrorMsg');
+                var nameErrorMsg = document.getElementById('nameErrorMsg');
+                // Clear previous inline errors
+                if (skuErrorMsg) { skuErrorMsg.style.display = 'none'; skuErrorMsg.textContent = ''; }
+                if (nameErrorMsg) { nameErrorMsg.style.display = 'none'; nameErrorMsg.textContent = ''; }
+
+                var hasInlineError = false;
+                if (!name || name === '') {
+                    if (nameErrorMsg) {
+                        nameErrorMsg.textContent = 'Name is required';
+                        nameErrorMsg.style.display = 'block';
+                    }
+                    hasInlineError = true;
+                }
+                if (!sku || sku === '') {
+                    if (skuErrorMsg) {
+                        skuErrorMsg.textContent = 'SKU is required';
+                        skuErrorMsg.style.display = 'block';
+                    }
+                    hasInlineError = true;
+                }
+                if (hasInlineError) {
+                    return; // abort submit
+                }
+
+                // Check variant SKUs
+                if (variants && variants.length > 0) {
+                    for (var vi = 0; vi < variants.length; vi++) {
+                        if (!variants[vi].sku || variants[vi].sku.trim() === '') {
+                            // Find the corresponding row input and highlight
+                            var variantRows = document.querySelectorAll('#variantsTableBody tr');
+                            if (variantRows && variantRows[vi]) {
+                                var vSkuInput = variantRows[vi].querySelector('input.variant-sku');
+                                if (vSkuInput) {
+                                    vSkuInput.focus();
+                                    // Show a temporary inline error next to the field if desired
+                                    // We'll reuse the global SKU error area for visibility
+                                    if (skuErrorMsg) {
+                                        skuErrorMsg.textContent = 'All variant SKUs are required';
+                                        skuErrorMsg.style.display = 'block';
+                                    }
+                                }
+                            }
+                            return; // abort submit
+                        }
+                    }
+                }
+
                 // Send all product data to API (only once, with all fields)
+                // Normalize stock fields: if tracking is disabled or user left field empty, send empty string
+                var payloadInStock = (trackStock && inStock) ? inStock : '';
+                var payloadLowStock = (trackStock && lowStock) ? lowStock : '';
                 fetch('api.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -518,8 +838,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         price,
                         cost,
                         track_stock: trackStock,
-                        in_stock: inStock,
-                        low_stock: lowStock,
+                        in_stock: payloadInStock,
+                        low_stock: payloadLowStock,
                         pos_available: posAvailable,
                         type,
                         color,
@@ -533,13 +853,64 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {
+                        // Show temporary success popup
                         showSuccessPopup('Product successfully added!');
-                        // Clear all fields in the modal
+
+                        // Run the requested success UI flow:
+                        // 1) switch back to the previous tab
+                        // 2) fetch next SKU and populate the inline SKU input
+                        // 3) then close the modal after a short delay
+                        try {
+                            // 1) show appropriate tab: if user came from MANUAL, switch to SCAN so they can continue scanning;
+                            // otherwise return to previous tab.
+                            if (typeof showTab === 'function') {
+                                try {
+                                    if (typeof previousTab !== 'undefined' && previousTab === 'manual') {
+                                        showTab('scan');
+                                    } else {
+                                        showTab(previousTab);
+                                    }
+                                } catch (e) {
+                                    // Fallback to scan if previousTab isn't available
+                                    showTab('scan');
+                                }
+                            }
+
+                            // 2) fetch next SKU and set it in the inline form (if present)
+                            setTimeout(function() {
+                                fetch('get_next_sku.php')
+                                    .then(function(resp) { return resp.json(); })
+                                    .then(function(skuData) {
+                                        if (skuData && skuData.next_sku) {
+                                            var skuInput = document.querySelector('#inlineAddItemsForm input[name="itemSKU"], #inlineItemSKU');
+                                            if (skuInput) skuInput.value = skuData.next_sku;
+                                        }
+                                    })
+                                    .finally(function() {
+                                        // 3) close the modal after ensuring UI updated
+                                        var scannerModal = document.getElementById('scannerModal');
+                                        if (scannerModal) {
+                                            setTimeout(function() {
+                                                scannerModal.style.display = 'none';
+                                                scannerModal.classList.remove('show');
+                                            }, 300); // small delay to let SKU populate
+                                        }
+                                    });
+                            }, 300);
+                        } catch (e) {
+                            // If anything fails, still close the modal safely
+                            console.error(e);
+                            var scannerModal = document.getElementById('scannerModal');
+                            if (scannerModal) {
+                                scannerModal.style.display = 'none';
+                                scannerModal.classList.remove('show');
+                            }
+                        }
+
+                        // Reset modal fields and visual state (keep modal-close timing above)
                         addItemsForm.reset();
-                        // Hide stock fields row after reset
                         var stockFieldsRow = document.getElementById('stockFieldsRow');
                         if (stockFieldsRow) stockFieldsRow.style.display = 'none';
-                        // Remove selected color/shape
                         document.querySelectorAll('.color-option').forEach(function(opt) {
                             opt.classList.remove('selected');
                             opt.style.borderColor = 'transparent';
@@ -550,7 +921,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                         lastSelectedColor = null;
                         lastSelectedShape = null;
-                        // Uncheck POS checkbox and hide POS options
                         var posCheckbox = document.getElementById('availablePOS');
                         var posOptions = document.getElementById('posOptionsContainer');
                         var productForm = document.querySelector('.product-form');
@@ -560,28 +930,33 @@ document.addEventListener('DOMContentLoaded', function() {
                             posOptions.style.display = 'none';
                         }
                         if (productForm) productForm.classList.remove('pos-options-active');
-                        // Optionally clear image upload/crop
-                        // Hide modal
-                        var scannerModal = document.getElementById('scannerModal');
-                        if (scannerModal) {
-                            setTimeout(function() {
-                                scannerModal.style.display = 'none';
-                                scannerModal.classList.remove('show');
-                            }, 800); // Wait for popup to show
-                        }
-                        // Hide SKU error message
                         var skuErrorMsg = document.getElementById('skuErrorMsg');
                         if (skuErrorMsg) {
                             skuErrorMsg.style.display = 'none';
                             skuErrorMsg.textContent = '';
                         }
                     } else {
+                        // Keep modal open. Show inline errors for SKU or Name if returned by server.
                         var skuErrorMsg = document.getElementById('skuErrorMsg');
-                        if (skuErrorMsg && data.error && data.error.toLowerCase().includes('sku')) {
-                            skuErrorMsg.textContent = data.error;
-                            skuErrorMsg.style.display = 'block';
+                        var nameErrorMsg = document.getElementById('nameErrorMsg');
+                        // Reset inline errors
+                        if (skuErrorMsg) { skuErrorMsg.style.display = 'none'; skuErrorMsg.textContent = ''; }
+                        if (nameErrorMsg) { nameErrorMsg.style.display = 'none'; nameErrorMsg.textContent = ''; }
+
+                        if (data.error) {
+                            var lower = data.error.toLowerCase();
+                            if (lower.includes('sku') && skuErrorMsg) {
+                                skuErrorMsg.textContent = data.error;
+                                skuErrorMsg.style.display = 'block';
+                            } else if ((lower.includes('name') || lower.includes('required')) && nameErrorMsg) {
+                                nameErrorMsg.textContent = data.error;
+                                nameErrorMsg.style.display = 'block';
+                            } else {
+                                // Fallback: generic error popup
+                                showErrorPopup('Error: ' + data.error);
+                            }
                         } else {
-                            showErrorPopup('Error: ' + (data.error || 'Unknown error'));
+                            showErrorPopup('Error: Unknown error');
                         }
                     }
                 })

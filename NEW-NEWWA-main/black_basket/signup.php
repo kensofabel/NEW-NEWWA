@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 				// Auto-login: fetch the new user and set session
 				$user_id = $stmt->insert_id;
 				// Create default category for this user
-				createDefaultCategoryForUser($user_id);
+				createDefaultCategory($user_id);
 				// Create Owner role for this owner if not exists
 				$role_name = 'Owner';
 				$role_desc = 'Full access to all features';

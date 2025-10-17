@@ -398,6 +398,86 @@
 }
 
 /* Remove white highlight border from search input */
+
+/* Barcode results styling used by Add Items results view */
+#barcodeResultsContainer {
+    margin-top: 12px;
+}
+.barcode-result-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 100px 140px 110px;
+    gap: 12px;
+    align-items: center;
+    padding: 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    margin-bottom: 10px;
+}
+.barcode-result-row .result-left {
+    display: flex;
+    flex-direction: column;
+}
+.barcode-result-row .result-category {
+    font-size: 12px;
+    color: #bdbdbd;
+    margin-bottom: 4px;
+}
+.barcode-result-row .result-name {
+    font-size: 14px;
+    color: #dbdbdb; /* requested color */
+    font-weight: 600;
+}
+.barcode-result-row .small-label {
+    font-size: 12px;
+    color: #bdbdbd;
+    margin-bottom: 6px;
+}
+.barcode-result-row .instock-value {
+    font-size: 16px;
+    color: #dbdbdb;
+    font-weight: 700;
+}
+.barcode-result-row .result-status .status-value {
+    font-size: 13px;
+    color: #ffb74d;
+}
+.barcode-result-row .result-addstock {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.barcode-result-row .addstock-input {
+    width: 60px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+}
+.barcode-result-row .addstock-btn {
+    background: #ff9800;
+    color: #171717;
+    border: none;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 720px) {
+    .barcode-result-row {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto;
+    }
+    .barcode-result-row .result-track,
+    .barcode-result-row .result-instock,
+    .barcode-result-row .result-status,
+    .barcode-result-row .result-addstock {
+        justify-self: start;
+    }
+}
+
 .search-controls .search-box input {
     outline: none;
     box-shadow: none;
